@@ -1,0 +1,42 @@
+name: Agentic AI - CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Backend Deps
+        run: cd backend && npm install
+        
+      - name: Backend Lint
+        run: cd backend && npm run lint || echo "No lint script"
+        
+      - name: Install Frontend Deps
+        run: cd frontend && npm install
+        
+      - name: Frontend Build Check
+        run: cd frontend && npm run build
+
+  docker-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build Backend Image
+        run: docker build -t agentic-backend ./backend
+        
+      - name: Build Frontend Image
+        run: docker build -t agentic-frontend ./frontend

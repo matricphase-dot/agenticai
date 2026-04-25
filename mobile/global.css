@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --purple: #7C3AED;
+    --background: #0F0F0F;
+  }
+}

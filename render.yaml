@@ -1,0 +1,39 @@
+services:
+  # Service 1 — Backend (free web service)
+  - type: web
+    name: agenticai-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: node dist/index.js
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+
+  # Service 2 — Frontend (free web service)
+  - type: web
+    name: agenticai-frontend
+    runtime: node
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+  # Service 4 — Redis
+  - type: redis
+    name: agenticai-redis
+    plan: free # Note: 25MB limit on free tier
+    ipAllowList: [] # Allow all internal traffic
+
+databases:
+  # Service 3 — PostgreSQL
+  - name: agenticai-db
+    plan: free # Note: free tier expires after 90 days
+    postgresMajorVersion: 15

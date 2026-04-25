@@ -1,0 +1,604 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum AgentCategory {
+  CHATBOT
+  DATA_ANALYST
+  CODE_ASSISTANT
+  IMAGE_GENERATOR
+  RESEARCH
+  AUTOMATION
+  CUSTOMER_SUPPORT
+  FINANCE
+  LEGAL
+  OTHER
+}
+
+enum PricingModel {
+  FREE
+  PER_INVOCATION
+  PER_TOKEN
+}
+
+enum AgentStatus {
+  DRAFT
+  PUBLISHED
+  DEPRECATED
+}
+
+enum InvocationStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  TIMEOUT
+}
+
+enum NodeStatus {
+  ONLINE
+  OFFLINE
+  BUSY
+  MAINTENANCE
+}
+
+enum TaskStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  TIMEOUT
+}
+
+enum TransactionType {
+  TOPUP
+  INVOCATION_CHARGE
+  AGENT_EARNING
+  NODE_REWARD
+  STAKE
+  UNSTAKE
+  REWARD_CLAIM
+  WITHDRAWAL
+  PLATFORM_FEE
+  REFUND
+}
+
+enum StakeStatus {
+  ACTIVE
+  UNSTAKING
+  COMPLETED
+}
+
+enum ProposalType {
+  FEE_CHANGE
+  TREASURY
+  FEATURE
+  SLASH
+  OTHER
+}
+
+enum ProposalStatus {
+  DRAFT
+  ACTIVE
+  PASSED
+  REJECTED
+  EXECUTED
+  CANCELLED
+}
+
+enum VoteChoice {
+  FOR
+  AGAINST
+  ABSTAIN
+}
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model User {
+  id                  String    @id @default(cuid())
+  email               String    @unique
+  passwordHash        String?
+  name                String
+  avatar              String?
+  bio                 String?
+  socialLinks         Json?
+  role                Role      @default(USER)
+  emailVerified       Boolean   @default(false)
+  emailVerifyToken    String?
+  passwordResetToken  String?
+  passwordResetExpiry DateTime?
+  twoFactorEnabled    Boolean   @default(false)
+  twoFactorSecret     String?
+  walletAddress       String?   @unique
+  oauthProvider       String?
+  oauthId             String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  apiKeys           ApiKey[]
+  agents            Agent[]
+  secrets           Secret[]
+  nodes             Node[]
+  balance           Balance?
+  transactions      Transaction[]
+  invocations       Invocation[]
+  webhooks          Webhook[]
+  proposals         Proposal[]
+  votes             Vote[]
+  stakes            Stake[]
+  rewards           Reward[]
+  reviews           Review[]
+  purchases         Purchase[]
+  teamMemberships   TeamMember[]
+  teamInvitesSent   TeamInvite[]
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+  alerts            Alert[]
+  delegationsFrom   Delegation[] @relation("DelegationFrom")
+  delegationsTo     Delegation[] @relation("DelegationTo")
+  notificationPrefs NotificationPreference?
+  refreshTokens     RefreshToken[]
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  keyHash    String    @unique
+  keyPrefix  String
+  rateLimit  Int       @default(100)
+  lastUsedAt DateTime?
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  invocations Invocation[]
+}
+
+model RefreshToken {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+  replacedBy  String?
+}
+
+model Agent {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId         String?
+  team           Team?         @relation(fields: [teamId], references: [id])
+  name           String
+  slug           String        @unique
+  description    String
+  modelProvider  String
+  modelName      String
+  systemPrompt   String        @db.Text
+  inputSchema    Json?
+  outputSchema   Json?
+  category       AgentCategory
+  pricingModel   PricingModel  @default(FREE)
+  pricePerCall   Float         @default(0)
+  pricePerToken  Float         @default(0)
+  cpuRequired    Float         @default(1)
+  ramRequired    Float         @default(512)
+  gpuRequired    Boolean       @default(false)
+  isPublic       Boolean       @default(false)
+  status         AgentStatus   @default(DRAFT)
+  currentVersion String        @default("1.0.0")
+  tags           String[]
+  readme         String?       @db.Text
+  githubUrl      String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  versions       AgentVersion[]
+  invocations    Invocation[]
+  storage        AgentStorage[]
+  analytics      AgentAnalytics?
+  reviews        Review[]
+  stakes         Stake[]
+  purchases      Purchase[]
+  secretBindings AgentSecretBinding[]
+}
+
+model AgentVersion {
+  id            String   @id @default(cuid())
+  agentId       String
+  agent         Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  version       String
+  systemPrompt  String   @db.Text
+  modelProvider String
+  modelName     String
+  config        Json
+  changelog     String?
+  isActive      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@unique([agentId, version])
+}
+
+model AgentAnalytics {
+  id               String   @id @default(cuid())
+  agentId          String   @unique
+  agent            Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  totalInvocations Int      @default(0)
+  successCount     Int      @default(0)
+  failureCount     Int      @default(0)
+  avgLatencyMs     Int      @default(0)
+  totalEarnings    Float    @default(0)
+  totalTokensUsed  Int      @default(0)
+  stakerCount      Int      @default(0)
+  totalStaked      Float    @default(0)
+  avgRating        Float    @default(0)
+  reviewCount      Int      @default(0)
+  updatedAt        DateTime @updatedAt
+}
+
+model AgentStorage {
+  id        String   @id @default(cuid())
+  agentId   String
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  key       String
+  value     String   @db.Text
+  iv        String
+  updatedAt DateTime @updatedAt
+
+  @@unique([agentId, key])
+}
+
+model AgentSecretBinding {
+  id       String @id @default(cuid())
+  agentId  String
+  agent    Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  secretId String
+  secret   Secret @relation(fields: [secretId], references: [id], onDelete: Cascade)
+  envVar   String
+
+  @@unique([agentId, envVar])
+}
+
+model Secret {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  value     String   @db.Text
+  iv        String
+  createdAt DateTime @default(now())
+  bindings  AgentSecretBinding[]
+
+  @@unique([userId, name])
+}
+
+model Invocation {
+  id               String           @id @default(cuid())
+  agentId          String
+  agent            Agent            @relation(fields: [agentId], references: [id])
+  userId           String?
+  user             User?            @relation(fields: [userId], references: [id])
+  apiKeyId         String?
+  apiKey           ApiKey?          @relation(fields: [apiKeyId], references: [id])
+  nodeId           String?
+  node             Node?            @relation(fields: [nodeId], references: [id])
+  input            Json
+  output           Json?
+  status           InvocationStatus @default(PENDING)
+  latencyMs        Int?
+  tokensUsed       Int?
+  promptTokens     Int?
+  completionTokens Int?
+  cost             Float            @default(0)
+  errorMessage     String?
+  ipAddress        String?
+  createdAt        DateTime         @default(now())
+  task             NodeTask?
+}
+
+model Node {
+  id              String     @id @default(cuid())
+  userId          String
+  user            User       @relation(fields: [userId], references: [id])
+  name            String
+  endpoint        String
+  nodeApiKey      String     @unique
+  description     String?
+  gpuType         String?
+  cpuCores        Int
+  ramGb           Int
+  storageGb       Int        @default(100)
+  supportedModels String[]
+  pricePerSecond  Float      @default(0)
+  pricePerTask    Float      @default(0)
+  status          NodeStatus @default(OFFLINE)
+  reputation      Float      @default(50)
+  uptimePercent   Float      @default(0)
+  totalTasks      Int        @default(0)
+  successfulTasks Int        @default(0)
+  failedTasks     Int        @default(0)
+  totalEarned     Float      @default(0)
+  lastHeartbeat   DateTime?
+  registeredAt    DateTime   @default(now())
+  tasks           NodeTask[]
+  invocations     Invocation[]
+}
+
+model NodeTask {
+  id           String     @id @default(cuid())
+  nodeId       String
+  node         Node       @relation(fields: [nodeId], references: [id])
+  invocationId String     @unique
+  invocation   Invocation @relation(fields: [invocationId], references: [id])
+  agentId      String
+  input        Json
+  output       Json?
+  status       TaskStatus @default(PENDING)
+  reward       Float      @default(0)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime   @default(now())
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  agentId   String
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  @@unique([agentId, userId])
+}
+
+model Purchase {
+  id        String   @id @default(cuid())
+  agentId   String
+  agent     Agent    @relation(fields: [agentId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  amount    Float
+  createdAt DateTime @default(now())
+
+  @@unique([agentId, userId])
+}
+
+model Balance {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credits       Float    @default(0)
+  lockedCredits Float    @default(0)
+  tokenBalance  Float    @default(0)
+  lockedTokens  Float    @default(0)
+  updatedAt     DateTime @updatedAt
+}
+
+model Transaction {
+  id          String          @id @default(cuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id])
+  type        TransactionType
+  amount      Float
+  description String
+  metadata    Json?
+  txHash      String?
+  createdAt   DateTime        @default(now())
+}
+
+model Stake {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  agentId     String
+  agent       Agent       @relation(fields: [agentId], references: [id])
+  amount      Float
+  lockedUntil DateTime
+  status      StakeStatus @default(ACTIVE)
+  onChain     Boolean     @default(false)
+  txHash      String?
+  createdAt   DateTime    @default(now())
+  rewards     Reward[]
+
+  @@unique([userId, agentId])
+}
+
+model Reward {
+  id            String   @id @default(cuid())
+  stakeId       String
+  stake         Stake    @relation(fields: [stakeId], references: [id])
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  agentId       String
+  amount        Float
+  claimed       Boolean  @default(false)
+  distributedAt DateTime @default(now())
+}
+
+model Proposal {
+  id            String         @id @default(cuid())
+  title         String
+  description   String         @db.Text
+  type          ProposalType
+  proposerId    String
+  proposer      User           @relation(fields: [proposerId], references: [id])
+  status        ProposalStatus @default(ACTIVE)
+  startDate     DateTime
+  endDate       DateTime
+  executionData Json?
+  quorum        Float          @default(0.1)
+  forVotes      Float          @default(0)
+  againstVotes  Float          @default(0)
+  abstainVotes  Float          @default(0)
+  onChain       Boolean        @default(false)
+  txHash        String?
+  createdAt     DateTime       @default(now())
+  votes         Vote[]
+}
+
+model Vote {
+  id         String     @id @default(cuid())
+  proposalId String
+  proposal   Proposal   @relation(fields: [proposalId], references: [id])
+  userId     String
+  user       User       @relation(fields: [userId], references: [id])
+  choice     VoteChoice
+  weight     Float
+  onChain    Boolean    @default(false)
+  txHash     String?
+  createdAt  DateTime   @default(now())
+
+  @@unique([proposalId, userId])
+}
+
+model Delegation {
+  id         String    @id @default(cuid())
+  fromUserId String
+  fromUser   User      @relation("DelegationFrom", fields: [fromUserId], references: [id])
+  toUserId   String
+  toUser     User      @relation("DelegationTo", fields: [toUserId], references: [id])
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+}
+
+model Team {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  description String?
+  avatar      String?
+  ownerId     String
+  createdAt   DateTime     @default(now())
+  members     TeamMember[]
+  agents      Agent[]
+  invites     TeamInvite[]
+}
+
+model TeamMember {
+  id       String   @id @default(cuid())
+  teamId   String
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id])
+  role     TeamRole @default(MEMBER)
+  joinedAt DateTime @default(now())
+
+  @@unique([teamId, userId])
+}
+
+model TeamInvite {
+  id         String    @id @default(cuid())
+  teamId     String
+  team       Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  inviterId  String
+  inviter    User      @relation(fields: [inviterId], references: [id])
+  email      String
+  token      String    @unique
+  role       TeamRole  @default(MEMBER)
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model Webhook {
+  id              String            @id @default(cuid())
+  userId          String
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  url             String
+  secret          String
+  events          String[]
+  isActive        Boolean           @default(true)
+  failureCount    Int               @default(0)
+  lastTriggeredAt DateTime?
+  createdAt       DateTime          @default(now())
+  deliveries      WebhookDelivery[]
+}
+
+model WebhookDelivery {
+  id          String   @id @default(cuid())
+  webhookId   String
+  webhook     Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  event       String
+  payload     Json
+  statusCode  Int?
+  response    String?
+  success     Boolean  @default(false)
+  attempts    Int      @default(1)
+  deliveredAt DateTime @default(now())
+}
+
+model Alert {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  agentId     String?
+  name        String
+  metric      String
+  threshold   Float
+  condition   String
+  webhookUrl  String?
+  emailNotify Boolean  @default(true)
+  isActive    Boolean  @default(true)
+  lastFiredAt DateTime?
+  createdAt   DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model NotificationPreference {
+  id               String  @id @default(cuid())
+  userId           String  @unique
+  user             User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailRewards     Boolean @default(true)
+  emailInvocations Boolean @default(false)
+  emailGovernance  Boolean @default(true)
+  emailNodes       Boolean @default(true)
+  emailTeams       Boolean @default(true)
+  pushRewards      Boolean @default(true)
+  pushInvocations  Boolean @default(true)
+  pushGovernance   Boolean @default(true)
+  pushNodes        Boolean @default(true)
+  pushTeams        Boolean @default(true)
+}

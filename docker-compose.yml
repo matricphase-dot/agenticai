@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: agentic-ai-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: agenticai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: agentic-ai-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: agentic-ai-backend
+    ports:
+      - "4000:4000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/agenticai?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: super-secret-key
+      JWT_EXPIRES_IN: 7d
+      ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
+      PORT: 4000
+      FRONTEND_URL: http://localhost:3000
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: agentic-ai-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/agenticai?schema=public
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: super-secret-nextauth-key
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
