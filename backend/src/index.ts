@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import helmet from "helmet";
 import http from "http";
 import logger from "./lib/logger";
 import { initSocket } from "./lib/socket";
@@ -29,6 +30,8 @@ import auditRouter from "./routes/audit.routes";
 import notificationsRouter from "./routes/notifications.routes";
 import usersRouter from "./routes/users.routes";
 import { cronRouter } from "./routes/cron.routes";
+import statsRouter from "./routes/stats.routes";
+import contactRouter from "./routes/contact.routes";
 
 const app = express();
 const server = http.createServer(app);
@@ -40,9 +43,29 @@ const PORT = process.env.PORT || 4000;
 
 console.log(`[SERVER] Starting in ${process.env.NODE_ENV} mode`);
 
+app.use(helmet({
+  contentSecurityPolicy: true,
+  crossOriginEmbedderPolicy: true,
+  crossOriginOpenerPolicy: true,
+  crossOriginResourcePolicy: true,
+  dnsPrefetchControl: true,
+  frameguard: { action: 'deny' },
+  hidePoweredBy: true,
+  hsts: true,
+  ieNoOpen: true,
+  noSniff: true,
+  originAgentCluster: true,
+  permittedCrossDomainPolicies: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  xssFilter: true,
+}));
+
 app.use(cookieParser());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: [
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+    'https://agenticai-frontend-3tam.onrender.com'
+  ],
   credentials: true, // Required for cookies
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
@@ -68,41 +91,15 @@ app.use('/api/audit', auditRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/cron', cronRouter);
+app.use('/api/stats', statsRouter);
+app.use('/api/contact', contactRouter);
 
-// Platform stats (public)
-app.get('/api/stats', async (req, res) => {
-  try {
-    const [agents, nodes, invocations, staked] = await Promise.all([
-      prisma.agent.count({ 
-        where: { status: 'PUBLISHED', isPublic: true } 
-      }),
-      prisma.node.count({ where: { status: 'ONLINE' } }),
-      prisma.invocation.count(),
-      prisma.balance.aggregate({ 
-        _sum: { lockedTokens: true } 
-      }),
-    ]);
 
-    res.json({
-      success: true,
-      data: {
-        totalAgents: agents,
-        activeNodes: nodes,
-        totalInvocations: invocations,
-        totalStaked: staked._sum.lockedTokens || 0,
-      },
-    });
-  } catch {
-    res.json({ success: true, data: {} });
-  }
-});
 
 // Health check
 app.get("/health", (req, res) => {
   res.json({ 
-    success: true, 
-    status: "UP", 
-    uptime: process.uptime(),
+    status: "ok",
     timestamp: new Date() 
   });
 });

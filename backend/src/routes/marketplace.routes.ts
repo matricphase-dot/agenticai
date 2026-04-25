@@ -4,10 +4,12 @@ import { authMiddleware, optionalAuth } from '../middleware/auth.middleware';
 import { z } from 'zod';
 import { logger } from '../lib/logger';
 
+import { marketplaceRateLimit } from '../middleware/rate-limit.middleware';
+
 const router = Router();
 
 // GET /marketplace — list public agents
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', marketplaceRateLimit, async (req: Request, res: Response) => {
   try {
     const {
       search,

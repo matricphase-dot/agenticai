@@ -109,14 +109,20 @@ export default function DashboardLayout({ children }: {
       <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
         {/* Top Nav */}
         <header className="sticky top-0 z-40 bg-[#0A0A0A]/80 
-                           backdrop-blur-sm border-b border-[#1E1E1E] 
-                           h-14 flex items-center px-4 gap-4">
+                           backdrop-blur-md border-b border-[#1E1E1E] 
+                           h-16 flex items-center px-4 gap-4">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="md:hidden text-zinc-400 hover:text-white"
+            className="md:hidden text-zinc-400 hover:text-white p-2 rounded-lg hover:bg-zinc-800 transition"
           >
-            ☰
+            <span className="text-2xl">☰</span>
           </button>
+          
+          <div className="md:hidden flex items-center gap-2">
+            <Link href="/" className="text-white font-bold text-lg">
+              AI
+            </Link>
+          </div>
 
           <div className="flex-1" />
 

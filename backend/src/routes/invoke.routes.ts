@@ -9,11 +9,11 @@ import { prisma } from '../lib/prisma';
 
 const router = Router();
 
-// Rate limit invocations: 60 per minute per API key
+// Rate limit invocations: 10 per minute per API key/User
 const invokeLimiter = new RateLimiterRedis({
   storeClient: redis,
   keyPrefix: 'rl:invoke',
-  points: 60,
+  points: 10,
   duration: 60,
 });
 
@@ -48,7 +48,7 @@ router.post('/:agentId', async (req: Request, res: Response) => {
           res.status(429).json({
             success: false,
             code: 'RATE_LIMIT_EXCEEDED',
-            message: 'Too many invocations. Limit: 60/minute.',
+            message: 'Too many invocations. Limit: 10/minute.',
           });
           resolve();
           return;

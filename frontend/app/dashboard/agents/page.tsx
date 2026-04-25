@@ -107,29 +107,29 @@ export default function AgentsPage() {
                         rounded-xl divide-y divide-[#1E1E1E]">
           {agents.map(agent => (
             <div key={agent.id}
-                 className="flex items-center justify-between 
-                            p-4 hover:bg-zinc-900/50 transition">
+                 className="flex flex-col md:flex-row md:items-center justify-between 
+                            p-4 hover:bg-zinc-900/50 transition gap-4">
               <div className="flex items-center gap-4">
-                <span className="text-2xl">
+                <span className="text-2xl flex-shrink-0">
                   {CATEGORY_ICONS[agent.category] || '🤖'}
                 </span>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-white font-medium">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-white font-medium truncate max-w-[150px] md:max-w-none">
                       {agent.name}
                     </span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                       STATUS_COLORS[agent.status]
                     }`}>
                       {agent.status}
                     </span>
                   </div>
                   <p className="text-zinc-400 text-xs mt-0.5 
-                                max-w-md truncate">
+                                truncate">
                     {agent.description}
                   </p>
                   <div className="flex items-center gap-3 mt-1 
-                                  text-zinc-500 text-xs">
+                                  text-zinc-500 text-xs flex-wrap">
                     <span>{agent.modelProvider}/{agent.modelName}</span>
                     <span>v{agent.currentVersion}</span>
                     <span>{agent.pricingModel === 'FREE' 
@@ -142,12 +142,12 @@ export default function AgentsPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 md:justify-end flex-wrap">
                 <Link href={`/dashboard/agents/${agent.id}/sandbox`}
                   className="text-xs border border-zinc-700 text-zinc-300 
                              px-3 py-1.5 rounded-lg hover:border-zinc-500 
                              transition">
-                  Test
+                   Test
                 </Link>
                 <Link href={`/dashboard/agents/${agent.id}`}
                   className="text-xs border border-zinc-700 text-zinc-300 

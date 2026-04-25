@@ -121,23 +121,23 @@ export default function MonitoringPage() {
             {logs.map((log: any) => (
               <div key={log.id}>
                 <div
-                  className="flex items-center justify-between p-4 
-                             hover:bg-zinc-900/30 transition cursor-pointer"
+                  className="flex flex-col md:flex-row md:items-center justify-between p-4 
+                             hover:bg-zinc-900/30 transition cursor-pointer gap-2"
                   onClick={() => setExpandedLog(
                     expandedLog === log.id ? null : log.id
                   )}>
                   <div className="flex items-center gap-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                       STATUS_COLORS[log.status] || 'bg-zinc-700 text-zinc-400'
                     }`}>
                       {log.status}
                     </span>
-                    <span className="text-white text-sm">
+                    <span className="text-white text-sm font-medium">
                       {log.agent?.name || 'Unknown'}
                     </span>
                   </div>
-                  <div className="flex items-center gap-4 
-                                  text-zinc-400 text-xs">
+                  <div className="flex items-center gap-4 flex-wrap
+                                  text-zinc-400 text-[10px]">
                     {log.latencyMs && (
                       <span>{log.latencyMs}ms</span>
                     )}
@@ -146,7 +146,7 @@ export default function MonitoringPage() {
                     )}
                     <span>${(log.cost || 0).toFixed(6)}</span>
                     <span>
-                      {new Date(log.createdAt).toLocaleString()}
+                      {new Date(log.createdAt).toLocaleDateString()}
                     </span>
                     <span className="text-zinc-600">
                       {expandedLog === log.id ? '▲' : '▼'}
