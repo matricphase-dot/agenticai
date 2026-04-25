@@ -21,12 +21,24 @@ contract AgenticToken is ERC20, ERC20Permit, ERC20Votes, ERC20Snapshot, AccessCo
 
     event InflationMinted(address indexed to, uint256 amount);
 
-    constructor() ERC20("Agentic AI", "AGNT") ERC20Permit("Agentic AI") {
+    constructor(
+        address teamWallet,
+        address publicSaleWallet,
+        address ecosystemWallet,
+        address stakingContract,
+        address treasuryContract
+    ) ERC20("Agentic AI", "AGNT") ERC20Permit("Agentic AI") {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MINTER_ROLE, msg.sender);
         _grantRole(PAUSER_ROLE, msg.sender);
 
-        _mint(msg.sender, INITIAL_SUPPLY);
+        // Initial Distribution
+        _mint(teamWallet, 200_000_000 * 10**18); // 20%
+        _mint(publicSaleWallet, 300_000_000 * 10**18); // 30%
+        _mint(ecosystemWallet, 150_000_000 * 10**18); // 15%
+        _mint(stakingContract, 250_000_000 * 10**18); // 25%
+        _mint(treasuryContract, 100_000_000 * 10**18); // 10%
+        
         lastMintTimestamp = block.timestamp;
     }
 

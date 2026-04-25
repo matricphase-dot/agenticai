@@ -21,7 +21,13 @@ describe("Agentic AI Protocol Integration", function () {
 
     // Deploy Token
     const AgenticToken = await ethers.getContractFactory("AgenticToken");
-    token = await AgenticToken.deploy();
+    token = await AgenticToken.deploy(
+      owner.address, // team
+      owner.address, // public sale
+      owner.address, // ecosystem
+      owner.address, // staking placeholder
+      owner.address  // treasury placeholder
+    );
     await token.waitForDeployment();
 
     // Deploy Staking
