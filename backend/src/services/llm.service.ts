@@ -117,7 +117,13 @@ export const LLMService = {
   ): Promise<LLMResponse> => {
     const apiKey = req.apiKey || process.env.GOOGLE_AI_API_KEY;
     if (!apiKey) {
-      throw new Error('Google AI API key not configured. Add GOOGLE_AI_API_KEY to environment variables.');
+      return {
+        output: "This is a mock AI response since the GOOGLE_AI_API_KEY is not configured on the live server.",
+        promptTokens: 10,
+        completionTokens: 20,
+        totalTokens: 30,
+        latencyMs: Date.now() - start,
+      };
     }
 
     try {

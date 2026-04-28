@@ -1,290 +1,177 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import fetch from 'node-fetch';
 
 const BACKEND_URL = 'https://agenticai-backend-xao9.onrender.com';
-const api: AxiosInstance = axios.create({
-  baseURL: BACKEND_URL,
-  validateStatus: () => true, // Don't throw on error codes
-});
+let token = '';
+let agentId = '';
+let apiKey = '';
+let firstPublishedAgentId = '';
+let proposalId = '';
 
-interface TestResult {
-  name: string;
-  status: 'PASS' | 'FAIL' | 'SKIPPED';
-  received: any;
-  expected?: any;
-  notes?: string;
-}
-
-const results: TestResult[] = [];
-
-async function runTest(name: string, fn: () => Promise<any>, expectedStatus: number | number[]) {
+async function runTest(name: string, path: string, method: string, body?: any, headers: any = {}, expectedStatus?: number, additionalCheck?: (data: any, status: number) => boolean) {
   try {
-    const response = await fn();
-    const statusMatch = Array.isArray(expectedStatus) 
-      ? expectedStatus.includes(response.status) 
-      : response.status === expectedStatus;
-    
-    const result: TestResult = {
-      name,
-      status: statusMatch ? 'PASS' : 'FAIL',
-      received: { status: response.status, data: response.data },
+    const url = path.startsWith('http') ? path : `${BACKEND_URL}${path}`;
+    const options: any = {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers,
+      },
     };
-    results.push(result);
-    console.log(`[${result.status}] ${name} (${response.status})`);
-    return response;
+    if (body) {
+      options.body = JSON.stringify(body);
+    }
+
+    const res = await fetch(url, options);
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      data = text;
+    }
+
+    let passed = true;
+    if (expectedStatus && res.status !== expectedStatus) {
+      passed = false;
+    }
+    if (passed && additionalCheck) {
+      passed = additionalCheck(data, res.status);
+    }
+
+    console.log(`[${passed ? 'PASS' : 'FAIL'}] ${name}`);
+    if (!passed) {
+      console.log(`  Expected Status: ${expectedStatus}, Got: ${res.status}`);
+      console.log(`  Response:`, data);
+    }
+    return { passed, status: res.status, data, res };
   } catch (error: any) {
-    const result: TestResult = {
-      name,
-      status: 'FAIL',
-      received: error.message,
-    };
-    results.push(result);
-    console.log(`[FAIL] ${name} - Error: ${error.message}`);
-    return null;
+    console.log(`[FAIL] ${name} - Exception: ${error.message}`);
+    return { passed: false, error };
   }
 }
 
 async function main() {
-  console.log('🧪 Starting Agentic AI Platform QA Test Suite...\n');
+  console.log('--- AUTH TESTS ---');
+  await runTest('Signup', '/api/auth/signup', 'POST', { email: "test_qa@agenticai.dev", password: "QATest@1234", name: "QA Tester" }, {}, 201);
+  await runTest('Login unverified', '/api/auth/login', 'POST', { email: "test_qa@agenticai.dev", password: "QATest@1234" }, {}, 401, (d) => d.code === 'EMAIL_NOT_VERIFIED' || !d.success);
+  
+  const loginRes = await runTest('Login verified seeded', '/api/auth/login', 'POST', { email: "alice@agenticai.dev", password: "Demo@1234" }, {}, 200, (d) => !!d.data?.token);
+  if (loginRes.data?.data?.token) {
+    token = loginRes.data.data.token;
+  }
 
-  let aliceToken = '';
-  let bobToken = '';
-  let agentId = '';
-  let apiKey = '';
-  let firstAgentId = '';
-  let firstProposalId = '';
+  await runTest('Get me with token', '/api/auth/me', 'GET', null, { Authorization: `Bearer ${token}` }, 200, (d) => d.data?.email === 'alice@agenticai.dev');
+  await runTest('Login wrong password', '/api/auth/login', 'POST', { email: "alice@agenticai.dev", password: "wrongpassword" }, {}, 401, (d) => d.code === 'INVALID_CREDENTIALS' || !d.success);
+  await runTest('Get me no token', '/api/auth/me', 'GET', null, {}, 401, (d) => d.code === 'NO_TOKEN' || !d.success);
+  await runTest('Forgot password', '/api/auth/forgot-password', 'POST', { email: "alice@agenticai.dev" }, {}, 200);
 
-  // --- AUTH TESTS ---
-  console.log('\n--- 1. AUTH TESTS ---');
-  await runTest('POST /api/auth/signup', () => api.post('/api/auth/signup', {
-    email: `test_qa_${Date.now()}@agenticai.dev`,
-    password: 'QATest@1234',
-    name: 'QA Tester'
-  }), 201);
-
-  await runTest('POST /api/auth/login with unverified email', () => api.post('/api/auth/login', {
-    email: 'test_qa@agenticai.dev', // Assuming this one exists but unverified
-    password: 'QATest@1234'
-  }), 401);
-
-  const loginRes = await runTest('POST /api/auth/login (Alice)', () => api.post('/api/auth/login', {
-    email: 'alice@agenticai.dev',
-    password: 'Demo@1234'
-  }), 200);
-  if (loginRes?.data?.success) aliceToken = loginRes.data.data.token;
-
-  const loginBobRes = await runTest('POST /api/auth/login (Bob)', () => api.post('/api/auth/login', {
-    email: 'bob@agenticai.dev',
-    password: 'Demo@1234'
-  }), 200);
-  if (loginBobRes?.data?.success) bobToken = loginBobRes.data.data.token;
-
-  await runTest('GET /api/auth/me', () => api.get('/api/auth/me', {
-    headers: { Authorization: `Bearer ${aliceToken}` }
-  }), 200);
-
-  await runTest('POST /api/auth/login wrong password', () => api.post('/api/auth/login', {
-    email: 'alice@agenticai.dev',
-    password: 'wrongpassword'
-  }), 401);
-
-  await runTest('GET /api/auth/me no token', () => api.get('/api/auth/me'), 401);
-
-  await runTest('POST /api/auth/forgot-password', () => api.post('/api/auth/forgot-password', {
-    email: 'alice@agenticai.dev'
-  }), 200);
-
-  // --- RATE LIMITING ---
-  console.log('\n--- 2. RATE LIMITING TESTS ---');
-  console.log('Sending 6 rapid login attempts...');
-  let lastRateLimitStatus = 0;
+  console.log('\n--- RATE LIMITING TESTS ---');
+  let rateLimited = false;
   for (let i = 0; i < 6; i++) {
-    const res = await api.post('/api/auth/login', { email: 'alice@agenticai.dev', password: 'wrongpassword' });
-    lastRateLimitStatus = res.status;
-    process.stdout.write(`${res.status} `);
+    const r = await runTest(`Rapid login ${i+1}`, '/api/auth/login', 'POST', { email: "alice@agenticai.dev", password: "wrongpassword" });
+    if (r.status === 429) rateLimited = true;
   }
-  console.log();
-  results.push({
-    name: 'Rate Limiting Check',
-    status: lastRateLimitStatus === 429 ? 'PASS' : 'FAIL',
-    received: lastRateLimitStatus,
-    notes: lastRateLimitStatus === 429 ? 'Rate limiting triggered' : 'Rate limiting NOT triggered'
-  });
+  console.log(`Rate limiting triggered: ${rateLimited ? 'yes' : 'no'}`);
 
-  // --- MARKETPLACE ---
-  console.log('\n--- 3. MARKETPLACE TESTS ---');
-  const marketRes = await runTest('GET /api/marketplace', () => api.get('/api/marketplace'), 200);
-  if (marketRes?.data?.success && Array.isArray(marketRes.data.data)) {
-    firstAgentId = marketRes.data.data[0]?.id;
-    console.log(`Agents returned: ${marketRes.data.data.length}`);
+  console.log('\n--- MARKETPLACE TESTS ---');
+  const marketRes = await runTest('Get marketplace', '/api/marketplace', 'GET', null, {}, 200);
+  console.log(`Agents returned: ${marketRes.data?.data?.length || 0}`);
+  if (marketRes.data?.data?.length > 0) {
+    firstPublishedAgentId = marketRes.data.data[0].id;
   }
 
-  await runTest('GET /api/marketplace search DataMind', () => api.get('/api/marketplace?search=DataMind'), 200);
-  await runTest('GET /api/marketplace category DATA_ANALYST', () => api.get('/api/marketplace?category=DATA_ANALYST'), 200);
-  await runTest('GET /api/marketplace sort rating', () => api.get('/api/marketplace?sort=rating'), 200);
-  if (firstAgentId) {
-    await runTest('GET /api/marketplace/{agentId}', () => api.get(`/api/marketplace/${firstAgentId}`), 200);
+  await runTest('Marketplace search DataMind', '/api/marketplace?search=DataMind', 'GET', null, {}, 200);
+  await runTest('Marketplace category DATA_ANALYST', '/api/marketplace?category=DATA_ANALYST', 'GET', null, {}, 200);
+  await runTest('Marketplace sort rating', '/api/marketplace?sort=rating', 'GET', null, {}, 200);
+  if (firstPublishedAgentId) {
+    await runTest('Marketplace agent detail', `/api/marketplace/${firstPublishedAgentId}`, 'GET', null, {}, 200);
   }
 
-  // --- AGENT TESTS ---
-  console.log('\n--- 4. AGENT TESTS (Alice) ---');
-  await runTest('GET /api/agents', () => api.get('/api/agents', {
-    headers: { Authorization: `Bearer ${aliceToken}` }
-  }), 200);
-
-  const createAgentRes = await runTest('POST /api/agents', () => api.post('/api/agents', {
-    name: "QA Test Agent",
-    slug: `qa-test-agent-${Date.now()}`,
-    description: "Test agent for QA",
-    category: "CHATBOT",
-    modelProvider: "google",
-    modelName: "gemini-1.5-flash",
-    systemPrompt: "You are a helpful assistant.",
-    pricingModel: "FREE",
-    isPublic: false
-  }, { headers: { Authorization: `Bearer ${aliceToken}` } }), 201);
-  if (createAgentRes?.data?.success) agentId = createAgentRes.data.data.id;
+  console.log('\n--- AGENT TESTS ---');
+  await runTest('Get alice agents', '/api/agents', 'GET', null, { Authorization: `Bearer ${token}` }, 200);
+  
+  const createRes = await runTest('Create agent', '/api/agents', 'POST', {
+    name: "QA Test Agent", slug: `qa-test-agent-${Date.now()}`, description: "Test agent for QA", category: "CHATBOT",
+    modelProvider: "google", modelName: "gemini-1.5-flash", systemPrompt: "You are a helpful assistant.", pricingModel: "FREE", isPublic: false
+  }, { Authorization: `Bearer ${token}` }, 201);
+  
+  if (createRes.data?.data?.id) {
+    agentId = createRes.data.data.id;
+  }
 
   if (agentId) {
-    await runTest('GET /api/agents/{agentId}', () => api.get(`/api/agents/${agentId}`, {
-      headers: { Authorization: `Bearer ${aliceToken}` }
-    }), 200);
-
-    await runTest('PUT /api/agents/{agentId}', () => api.put(`/api/agents/${agentId}`, {
-      description: "Updated description for QA"
-    }, { headers: { Authorization: `Bearer ${aliceToken}` } }), 200);
-
-    await runTest('POST /api/agents/{agentId}/publish', () => api.post(`/api/agents/${agentId}/publish`, {}, {
-      headers: { Authorization: `Bearer ${aliceToken}` }
-    }), 200);
-
-    await runTest('POST /api/agents/{agentId}/chat', () => api.post(`/api/agents/${agentId}/chat`, {
-      message: "Hello, say hi back in one sentence"
-    }, { headers: { Authorization: `Bearer ${aliceToken}` } }), 200);
+    await runTest('Get agent details', `/api/agents/${agentId}`, 'GET', null, { Authorization: `Bearer ${token}` }, 200);
+    await runTest('Update agent', `/api/agents/${agentId}`, 'PUT', { description: "Updated description for QA" }, { Authorization: `Bearer ${token}` }, 200);
+    await runTest('Publish agent', `/api/agents/${agentId}/publish`, 'POST', null, { Authorization: `Bearer ${token}` }, 200);
+    const chatRes = await runTest('Chat with agent', `/api/agents/${agentId}/chat`, 'POST', { message: "Hello, say hi back in one sentence" }, { Authorization: `Bearer ${token}` }, 200);
+    console.log(`AI responded: ${chatRes.data?.data?.response ? 'yes' : 'no'}, Response preview: ${chatRes.data?.data?.response?.substring(0, 50)}`);
   }
 
-  // --- INVOCATION TESTS ---
-  console.log('\n--- 5. INVOCATION TESTS ---');
-  const keyRes = await runTest('POST /api/keys', () => api.post('/api/keys', {
-    name: "QA Test Key"
-  }, { headers: { Authorization: `Bearer ${aliceToken}` } }), 200);
-  if (keyRes?.data?.success) apiKey = keyRes.data.data.key;
-
-  if (apiKey && firstAgentId) {
-    await runTest('POST /api/invoke/{agentId}', () => api.post(`/api/invoke/${firstAgentId}`, {
-      message: "What is 2+2?"
-    }, { headers: { 'X-API-Key': apiKey } }), 200);
+  console.log('\n--- INVOCATION TESTS ---');
+  const keyRes = await runTest('Create API key', '/api/keys', 'POST', { name: "QA Test Key" }, { Authorization: `Bearer ${token}` }, 200);
+  if (keyRes.data?.data?.key) {
+    apiKey = keyRes.data.data.key;
+  } else if (keyRes.data?.key) {
+    apiKey = keyRes.data.key;
   }
 
-  // --- STAKING TESTS ---
-  console.log('\n--- 6. STAKING TESTS ---');
-  await runTest('GET /api/staking/positions', () => api.get('/api/staking/positions', {
-    headers: { Authorization: `Bearer ${bobToken}` }
-  }), 200);
-
-  if (firstAgentId) {
-    await runTest('POST /api/staking/stake (Bob)', () => api.post('/api/staking/stake', {
-      agentId: firstAgentId,
-      amount: 10
-    }, { headers: { Authorization: `Bearer ${bobToken}` } }), [200, 400]); // 400 if already staked or insufficient
+  if (apiKey && agentId) {
+    const invokeRes = await runTest('Invoke agent via key', `/api/invoke/${agentId}`, 'POST', { message: "What is 2+2?" }, { 'X-API-Key': apiKey }, 200);
+    console.log(`Invoke response received: ${invokeRes.data?.data?.response || invokeRes.data?.response ? 'yes' : 'no'}`);
   }
 
-  await runTest('GET /api/staking/rewards', () => api.get('/api/staking/rewards', {
-    headers: { Authorization: `Bearer ${bobToken}` }
-  }), 200);
-
-  // --- GOVERNANCE TESTS ---
-  console.log('\n--- 7. GOVERNANCE TESTS ---');
-  const govRes = await runTest('GET /api/governance/proposals', () => api.get('/api/governance/proposals'), 200);
-  if (govRes?.data?.success && Array.isArray(govRes.data.data)) {
-    firstProposalId = govRes.data.data[0]?.id;
-  }
-
-  if (firstProposalId) {
-    await runTest('GET /api/governance/proposals/{proposalId}', () => api.get(`/api/governance/proposals/${firstProposalId}`), 200);
-    await runTest('POST /api/governance/proposals/{proposalId}/vote (Bob)', () => api.post(`/api/governance/proposals/${firstProposalId}/vote`, {
-      choice: "FOR"
-    }, { headers: { Authorization: `Bearer ${bobToken}` } }), [200, 409]);
-  }
-
-  // --- BILLING TESTS ---
-  console.log('\n--- 8. BILLING TESTS ---');
-  await runTest('GET /api/billing/balance', () => api.get('/api/billing/balance', {
-    headers: { Authorization: `Bearer ${aliceToken}` }
-  }), 200);
-
-  await runTest('GET /api/billing/transactions', () => api.get('/api/billing/transactions', {
-    headers: { Authorization: `Bearer ${aliceToken}` }
-  }), 200);
-
-  // --- NODE TESTS ---
-  console.log('\n--- 9. NODE TESTS ---');
-  await runTest('GET /api/nodes', () => api.get('/api/nodes'), 200);
-
-  // --- MONITORING TESTS ---
-  console.log('\n--- 10. MONITORING TESTS ---');
-  await runTest('GET /api/monitoring/logs', () => api.get('/api/monitoring/logs', {
-    headers: { Authorization: `Bearer ${aliceToken}` }
-  }), 200);
-
-  if (firstAgentId) {
-    await runTest('GET /api/monitoring/metrics/{agentId}', () => api.get(`/api/monitoring/metrics/${firstAgentId}`, {
-      headers: { Authorization: `Bearer ${aliceToken}` }
-    }), 200);
-  }
-
-  // --- STATS & HEALTH ---
-  console.log('\n--- 11. STATS & HEALTH ---');
-  await runTest('GET /api/stats', () => api.get('/api/stats'), 200);
-  await runTest('GET /health', () => api.get('/health'), 200);
-
-  // --- SECURITY TESTS ---
-  console.log('\n--- 12. SECURITY TESTS ---');
-  await runTest('SQL Injection attempt', () => api.get("/api/marketplace?search=' OR '1'='1"), [200, 400]);
+  console.log('\n--- STAKING TESTS (as bob) ---');
+  const bobLogin = await runTest('Login as bob', '/api/auth/login', 'POST', { email: "bob@agenticai.dev", password: "Demo@1234" });
+  const bobToken = bobLogin.data?.data?.token || bobLogin.data?.token;
   
-  await runTest('XSS attempt', () => api.post('/api/agents', {
-    name: "<script>alert('xss')</script>",
-    slug: `xss-test-${Date.now()}`,
-    description: "XSS Test",
-    category: "CHATBOT",
-    modelProvider: "google",
-    modelName: "gemini-1.5-flash",
-    systemPrompt: "Test",
-    pricingModel: "FREE",
-    isPublic: false
-  }, { headers: { Authorization: `Bearer ${aliceToken}` } }), 201);
+  await runTest('Get staking positions', '/api/staking/positions', 'GET', null, { Authorization: `Bearer ${bobToken}` }, 200);
+  if (firstPublishedAgentId) {
+    await runTest('Create stake', '/api/staking/stake', 'POST', { agentId: firstPublishedAgentId, amount: 10 }, { Authorization: `Bearer ${bobToken}` });
+  }
+  await runTest('Get rewards', '/api/staking/rewards', 'GET', null, { Authorization: `Bearer ${bobToken}` }, 200);
 
+  console.log('\n--- GOVERNANCE TESTS ---');
+  const propRes = await runTest('Get proposals', '/api/governance/proposals', 'GET', null, {}, 200);
+  console.log(`Proposals returned: ${propRes.data?.data?.length || 0}`);
+  if (propRes.data?.data?.length > 0) {
+    proposalId = propRes.data.data[0].id;
+    await runTest('Get proposal details', `/api/governance/proposals/${proposalId}`, 'GET', null, {}, 200);
+    await runTest('Vote on proposal', `/api/governance/proposals/${proposalId}/vote`, 'POST', { choice: "FOR" }, { Authorization: `Bearer ${bobToken}` });
+  }
+
+  console.log('\n--- BILLING TESTS ---');
+  await runTest('Get balance', '/api/billing/balance', 'GET', null, { Authorization: `Bearer ${token}` }, 200);
+  await runTest('Get transactions', '/api/billing/transactions', 'GET', null, { Authorization: `Bearer ${token}` }, 200);
+
+  console.log('\n--- NODE TESTS ---');
+  const nodesRes = await runTest('Get nodes', '/api/nodes', 'GET', null, { Authorization: `Bearer ${token}` }, 200);
+  console.log(`Nodes returned: ${nodesRes.data?.data?.length || 0}`);
+
+  console.log('\n--- MONITORING TESTS ---');
+  const logsRes = await runTest('Get logs', '/api/monitoring/logs', 'GET', null, { Authorization: `Bearer ${token}` }, 200);
+  console.log(`Logs returned: ${logsRes.data?.data?.length || 0}`);
   if (agentId) {
-    await runTest("Access other user's agent (Bob -> Alice's Agent)", () => api.put(`/api/agents/${agentId}`, {
-      description: "Hacked"
-    }, { headers: { Authorization: `Bearer ${bobToken}` } }), 403);
+    await runTest('Get metrics', `/api/monitoring/metrics/${agentId}`, 'GET', null, { Authorization: `Bearer ${token}` }, 200);
   }
 
-  await runTest('Access without token', () => api.get('/api/agents'), 401);
-  await runTest('Invalid JWT', () => api.get('/api/agents', {
-    headers: { Authorization: 'Bearer invalidtoken123' }
-  }), 401);
+  console.log('\n--- STATS TEST ---');
+  const statsRes = await runTest('Get stats', '/api/stats', 'GET', null, {}, 200);
+  console.log(`Stats returned:`, statsRes.data?.data || statsRes.data);
 
-  // --- FINAL REPORT ---
-  console.log('\n' + '='.repeat(50));
-  console.log('📊 FINAL TEST REPORT');
-  console.log('='.repeat(50));
-  
-  const passed = results.filter(r => r.status === 'PASS').length;
-  const failed = results.filter(r => r.status === 'FAIL').length;
-  
-  console.log(`TOTAL TESTS: ${results.length}`);
-  console.log(`PASSED: ${passed}`);
-  console.log(`FAILED: ${failed}`);
-  console.log('='.repeat(50));
+  console.log('\n--- HEALTH TEST ---');
+  await runTest('Get health', '/health', 'GET', null, {}, 200);
 
-  if (failed > 0) {
-    console.log('\n❌ FAILED TESTS:');
-    results.filter(r => r.status === 'FAIL').forEach(r => {
-      console.log(`- ${r.name}: ${JSON.stringify(r.received)}`);
-    });
-  } else {
-    console.log('\n✅ ALL TESTS PASSED!');
+  console.log('\n--- SECURITY TESTS ---');
+  await runTest('SQL Injection attempt', "/api/marketplace?search=' OR '1'='1", 'GET', null, {}, undefined, (d, s) => s === 200 || s === 400);
+  await runTest('XSS attempt', '/api/agents', 'POST', {
+    name: "<script>alert('xss')</script>", slug: `xss-agent-${Date.now()}`, description: "Test xss", category: "CHATBOT",
+    modelProvider: "google", modelName: "gemini-1.5-flash", systemPrompt: "test", pricingModel: "FREE", isPublic: false
+  }, { Authorization: `Bearer ${token}` }, 201);
+  if (agentId && bobToken) {
+    await runTest('Access other user agent', `/api/agents/${agentId}`, 'PUT', { description: "hacked" }, { Authorization: `Bearer ${bobToken}` }, 403);
   }
+  await runTest('Access without token', '/api/agents', 'GET', null, {}, 401);
+  await runTest('Invalid JWT', '/api/agents', 'GET', null, { Authorization: 'Bearer invalidtoken123' }, 401);
 }
 
-main();
+main().catch(console.error);

@@ -1,65 +1,58 @@
-import axios from 'axios';
+import fetch from 'node-fetch';
 
 const BACKEND_URL = 'https://agenticai-backend-xao9.onrender.com';
-const CONCURRENT_USERS = 50;
 
-async function runLoadTest() {
-  console.log(`🚀 Starting load test with ${CONCURRENT_USERS} concurrent users...`);
-
-  const tests = [
-    { name: 'GET /api/marketplace', url: '/api/marketplace', count: 20 },
-    { name: 'GET /api/stats', url: '/api/stats', count: 10 },
-    { name: 'GET /api/governance/proposals', url: '/api/governance/proposals', count: 10 },
-    { name: 'POST /api/auth/login', url: '/api/auth/login', count: 10, method: 'POST', body: { email: 'alice@agenticai.dev', password: 'wrongpassword' } },
-  ];
-
-  const allRequests: Promise<any>[] = [];
-  const results: Record<string, { times: number[], success: number, fail: number }> = {};
-
-  tests.forEach(test => {
-    results[test.name] = { times: [], success: 0, fail: 0 };
-    for (let i = 0; i < test.count; i++) {
-      allRequests.push((async () => {
-        const start = Date.now();
-        try {
-          const res = await axios({
-            url: `${BACKEND_URL}${test.url}`,
-            method: test.method || 'GET',
-            data: test.body,
-            validateStatus: () => true
-          });
-          const duration = Date.now() - start;
-          results[test.name].times.push(duration);
-          if (res.status < 400 || res.status === 401 || res.status === 429) { 
-            results[test.name].success++;
-          } else {
-            results[test.name].fail++;
-          }
-        } catch (error) {
-          results[test.name].fail++;
-        }
-      })());
-    }
-  });
-
-  await Promise.all(allRequests);
-
-  console.log('\n📊 LOAD TEST RESULTS');
-  console.log('='.repeat(50));
+async function testEndpoint(url: string, method: string, users: number) {
+  const fullUrl = url.startsWith('http') ? url : `${BACKEND_URL}${url}`;
   
-  for (const [name, data] of Object.entries(results)) {
-    const avg = data.times.reduce((a, b) => a + b, 0) / data.times.length || 0;
-    const min = Math.min(...data.times);
-    const max = Math.max(...data.times);
-    const successRate = (data.success / (data.success + data.fail)) * 100;
-
-    console.log(`${name}:`);
-    console.log(`  Avg: ${avg.toFixed(2)}ms`);
-    console.log(`  Min: ${min}ms`);
-    console.log(`  Max: ${max}ms`);
-    console.log(`  Success Rate: ${successRate.toFixed(2)}%`);
-    console.log('-'.repeat(25));
+  const promises = [];
+  
+  for (let i = 0; i < users; i++) {
+    const options: any = { method };
+    if (method === 'POST') {
+      options.headers = { 'Content-Type': 'application/json' };
+      options.body = JSON.stringify({ email: `loaduser${i}@agenticai.dev`, password: "password123" });
+    }
+    const start = Date.now();
+    promises.push(
+      fetch(fullUrl, options)
+        .then(res => ({ success: res.status >= 200 && res.status < 400, time: Date.now() - start, status: res.status }))
+        .catch(err => ({ success: false, time: Date.now() - start, error: err.message }))
+    );
   }
+  
+  const results = await Promise.all(promises);
+  
+  let successCount = 0;
+  let totalTime = 0;
+  let minTime = Number.MAX_VALUE;
+  let maxTime = 0;
+  
+  results.forEach(r => {
+    if (r.success) successCount++;
+    totalTime += r.time;
+    if (r.time < minTime) minTime = r.time;
+    if (r.time > maxTime) maxTime = r.time;
+  });
+  
+  console.log(`Endpoint: ${method} ${url} (${users} users)`);
+  console.log(`Average response time: ${(totalTime / users).toFixed(2)}ms`);
+  console.log(`Min response time: ${minTime === Number.MAX_VALUE ? 0 : minTime}ms`);
+  console.log(`Max response time: ${maxTime}ms`);
+  console.log(`Success rate %: ${(successCount / users) * 100}%`);
+  console.log(`Errors/Non-2xx: ${users - successCount}`);
+  console.log('-----------------------------------');
 }
 
-runLoadTest();
+async function main() {
+  console.log('Starting Load Test...\n');
+  await Promise.all([
+    testEndpoint('/api/marketplace', 'GET', 20),
+    testEndpoint('/api/stats', 'GET', 10),
+    testEndpoint('/api/governance/proposals', 'GET', 10),
+    testEndpoint('/api/auth/login', 'POST', 10)
+  ]);
+  console.log('Load Test Complete.');
+}
+
+main().catch(console.error);

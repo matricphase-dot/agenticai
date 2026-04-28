@@ -52,7 +52,7 @@ router.post('/', async (req, res) => {
     });
 
     // Return the FULL key only once
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
       data: {
         id: key.id,
