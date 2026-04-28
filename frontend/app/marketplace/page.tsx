@@ -38,10 +38,10 @@ export default function MarketplacePage() {
     if (search) params.search = search;
     if (category !== 'All') params.category = category;
 
-    const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://agenticai-backend-xao9.onrender.com';
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://agenticai-backend-xao9.onrender.com';
     try {
       const queryString = new URLSearchParams(params).toString();
-      const res = await fetch(`${BASE_URL}/api/marketplace?${queryString}`);
+      const res = await fetch(`${API_URL}/api/marketplace?${queryString}`);
       const data = await res.json();
       if (data.success) {
         setAgents(data.data?.agents || []);

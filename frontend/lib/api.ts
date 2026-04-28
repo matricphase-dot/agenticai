@@ -6,8 +6,9 @@ import type {
   CreateAgentPayload, CreateProposalPayload, RegisterNodePayload
 } from '../types/api.types';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL 
-  || 'http://localhost:4000';
+import { API_URL } from './config';
+
+const BASE_URL = API_URL;
 
 // Base fetch with auto-refresh on 401
 let isRefreshing = false;
