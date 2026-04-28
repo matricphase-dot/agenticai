@@ -61,7 +61,7 @@ async function main() {
   console.log('Balances created');
 
   // Create agents
-  const agents = [
+  const agents: any[] = [
     {
       name: 'DataMind Pro',
       slug: 'datamind-pro',
@@ -174,7 +174,7 @@ async function main() {
   }
 
   // Create nodes
-  const nodes = [
+  const nodes: any[] = [
     {
       name: 'Alpha-GPU-01',
       endpoint: 'https://node-alpha.agenticai.dev',
