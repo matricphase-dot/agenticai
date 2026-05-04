@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { agentsApi, monitoringApi } from '@/lib/api';
+import ProviderStatus from '@/components/ProviderStatus';
 
 export default function MonitoringPage() {
   const [agents, setAgents] = useState<any[]>([]);
@@ -44,7 +45,14 @@ export default function MonitoringPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold text-white">Monitoring</h1>
+      <h1 className="text-2xl font-bold text-white mb-2">Platform Monitoring</h1>
+
+      <section>
+        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">AI Provider Health</h2>
+        <ProviderStatus />
+      </section>
+
+      <div className="border-t border-white/5 pt-6" />
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">

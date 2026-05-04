@@ -66,7 +66,7 @@ export default function AboutPage() {
           </div>
         </div>
 
-        <div className="text-center">
+        <div className="text-center pb-24">
           <h2 className="text-4xl font-black mb-8">Ready to start?</h2>
           <div className="flex justify-center gap-6">
             <Link href="/auth/signup" className="bg-primary text-white px-10 py-4 rounded-2xl font-black hover:scale-105 transition-all">Create Account</Link>
@@ -77,7 +77,6 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Footer */}
       <Footer />
     </div>
   );

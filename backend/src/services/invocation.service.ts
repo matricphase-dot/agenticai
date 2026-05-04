@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { Prisma } from '@prisma/client';
-import { LLMService } from './llm.service';
+import { callLLM } from './llm.service';
 import { SecretsService } from './secrets.service';
 import { logger } from '../lib/logger';
 
@@ -110,14 +110,13 @@ export const InvocationService = {
     let errorMessage: string | undefined;
 
     try {
-      // 7. Call LLM
-      llmResult = await LLMService.call({
-        provider: agent.modelProvider,
-        model: agent.modelName,
-        systemPrompt,
-        userInput,
-        apiKey: secrets['MODEL_API_KEY'] || undefined,
-      });
+      // 7. Call LLM with failover
+      llmResult = await callLLM(
+        agent.modelProvider,    // preferred provider
+        systemPrompt,           // system prompt (with secrets injected)
+        userInput,              // user message
+        agent.modelName         // preferred model
+      );
     } catch (error: any) {
       finalStatus = 'FAILED';
       errorMessage = error.message || 'LLM call failed';
@@ -131,7 +130,7 @@ export const InvocationService = {
     // 8. Calculate cost
     const cost = InvocationService.calculateCost(
       agent,
-      llmResult?.totalTokens || 0
+      llmResult?.tokensUsed || 0
     );
 
     // 9. Update invocation record
@@ -141,9 +140,9 @@ export const InvocationService = {
         output: llmResult ? { text: llmResult.output } : Prisma.JsonNull,
         status: finalStatus,
         latencyMs: llmResult?.latencyMs || null,
-        tokensUsed: llmResult?.totalTokens || null,
-        promptTokens: llmResult?.promptTokens || null,
-        completionTokens: llmResult?.completionTokens || null,
+        tokensUsed: llmResult?.tokensUsed || null,
+        promptTokens: null, // New service doesn't split these currently, but tokensUsed is total
+        completionTokens: null,
         cost,
         errorMessage: errorMessage || null,
       },

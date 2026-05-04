@@ -105,7 +105,7 @@ router.post('/:id/chat', authMiddleware, async (req, res) => {
       data: {
         output: result.output,
         latencyMs: result.latencyMs,
-        tokensUsed: result.totalTokens,
+        tokensUsed: result.tokensUsed,
       },
     });
   } catch (error: any) {

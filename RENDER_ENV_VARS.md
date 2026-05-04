@@ -52,8 +52,17 @@ Copy and paste these into the Render dashboard for each service.
 | `INTERNAL_CRON_SECRET` | `097ca16c4a3ee5441335369f7b26d2f1` | Generated |
 | `ADMIN_EMAIL` | `admin@agenticai.dev` | |
 | `ADMIN_PASSWORD` | `Demo@1234` | Change as needed |
-| `OPENAI_API_KEY` | `sk-proj-...` | For OpenAI models |
-| `ANTHROPIC_API_KEY` | `sk-ant-...` | For Anthropic models |
+| `GOOGLE_AI_API_KEY` | `AIza...` | Primary Google AI Key (Critical) |
+| `GOOGLE_AI_API_KEY_2` | `AIza...` | Optional: 2nd key for rotation/failover |
+| `GOOGLE_AI_API_KEY_3` | `AIza...` | Optional: 3rd key for rotation/failover |
+| `OPENAI_API_KEY` | `sk-...` | Optional fallback provider |
+| `ANTHROPIC_API_KEY` | `sk-ant-...` | Optional fallback provider |
+| `RESEND_API_KEY` | `re_...` | Primary email service (Critical) |
+| `SMTP_HOST` | `smtp.gmail.com` | Optional email fallback host |
+| `SMTP_PORT` | `587` | |
+| `SMTP_SECURE` | `false` | |
+| `SMTP_USER` | `YOUR_GMAIL` | Replace with yours |
+| `SMTP_PASS` | `YOUR_APP_PASSWORD` | Replace with yours |
 | `RAZORPAY_KEY_ID` | `rzp_...` | For Razorpay billing |
 | `RAZORPAY_KEY_SECRET` | `...` | For Razorpay billing |
 | `RAZORPAY_WEBHOOK_SECRET` | `...` | Webhook verification |

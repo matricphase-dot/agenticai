@@ -1,12 +1,84 @@
 import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 import { logger } from '../lib/logger';
 
 const resend = process.env.RESEND_API_KEY 
   ? new Resend(process.env.RESEND_API_KEY) 
   : null;
 
-const FROM = 'onboarding@resend.dev';
+const FROM = process.env.EMAIL_FROM || 'onboarding@resend.dev';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+interface EmailData {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}
+
+async function sendViaResend(data: EmailData): Promise<void> {
+  if (!resend) throw new Error('Resend not configured');
+  await resend.emails.send({
+    from: FROM,
+    to: data.to,
+    subject: data.subject,
+    html: data.html,
+    text: data.text
+  });
+}
+
+async function sendViaSMTP(data: EmailData): Promise<void> {
+  if (!process.env.SMTP_HOST) throw new Error('SMTP not configured');
+  
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  await transporter.sendMail({
+    from: FROM,
+    to: data.to,
+    subject: data.subject,
+    html: data.html,
+    text: data.text,
+  });
+}
+
+async function sendWithFailover(data: EmailData): Promise<void> {
+  // 1. Try Resend
+  if (process.env.RESEND_API_KEY) {
+    try {
+      await sendViaResend(data);
+      logger.info('Email sent successfully via Resend', { to: data.to, subject: data.subject });
+      return;
+    } catch (error: any) {
+      logger.warn('Resend failed, trying SMTP fallback', { error: error.message, to: data.to });
+    }
+  }
+
+  // 2. Try SMTP
+  if (process.env.SMTP_HOST) {
+    try {
+      await sendViaSMTP(data);
+      logger.info('Email sent successfully via SMTP', { to: data.to, subject: data.subject });
+      return;
+    } catch (error: any) {
+      logger.error('SMTP fallback failed', { error: error.message, to: data.to });
+    }
+  }
+
+  // 3. Console fallback (Dev/Emergency)
+  logger.warn('ALL email providers failed or not configured — logging email to console', {
+    to: data.to,
+    subject: data.subject,
+    text: data.text
+  });
+}
 
 const wrapTemplate = (content: string, ctaText?: string, ctaLink?: string) => `
   <div style="background-color: #0A0A0A; color: #FFFFFF; font-family: system-ui, -apple-system, sans-serif; padding: 40px 20px; line-height: 1.6;">
@@ -41,23 +113,12 @@ export const EmailService = {
       <p style="color: #A0A0A0; font-size: 16px; margin-bottom: 24px;">Hi ${name}, welcome to the autonomous economy. Please verify your email to activate your account.</p>
     `, "Verify Email", url);
 
-    if (!resend) {
-      logger.info('📧 [DEV MODE] Verification Email:', { to: email, url });
-      return;
-    }
-
-    try {
-      await resend.emails.send({
-        from: FROM,
-        to: email,
-        subject,
-        html,
-        text: `Verify your AgenticAI account: ${url}`
-      });
-      logger.info('Verification email sent via Resend', { email });
-    } catch (error) {
-      logger.error('Failed to send verification email via Resend', { email, error });
-    }
+    await sendWithFailover({
+      to: email,
+      subject,
+      html,
+      text: `Verify your AgenticAI account: ${url}`
+    });
   },
 
   sendPasswordReset: async (email: string, name: string, token: string): Promise<void> => {
@@ -68,23 +129,12 @@ export const EmailService = {
       <p style="color: #A0A0A0; font-size: 16px; margin-bottom: 24px;">Hi ${name}, we received a request to reset your password. This link will expire in 1 hour.</p>
     `, "Reset Password", url);
 
-    if (!resend) {
-      logger.info('📧 [DEV MODE] Password Reset Email:', { to: email, url });
-      return;
-    }
-
-    try {
-      await resend.emails.send({
-        from: FROM,
-        to: email,
-        subject,
-        html,
-        text: `Reset your AgenticAI password: ${url}`
-      });
-      logger.info('Password reset email sent via Resend', { email });
-    } catch (error) {
-      logger.error('Failed to send password reset email via Resend', { email, error });
-    }
+    await sendWithFailover({
+      to: email,
+      subject,
+      html,
+      text: `Reset your AgenticAI password: ${url}`
+    });
   },
 
   sendWelcome: async (email: string, name: string): Promise<void> => {
@@ -101,31 +151,25 @@ export const EmailService = {
       </ul>
     `, "Go to Dashboard", `${FRONTEND_URL}/dashboard`);
 
-    if (!resend) {
-      logger.info('📧 [DEV MODE] Welcome Email:', { to: email });
-      return;
-    }
-
-    try {
-      await resend.emails.send({
-        from: FROM,
-        to: email,
-        subject,
-        html,
-        text: `Welcome to AgenticAI, ${name}! Your account is verified.`
-      });
-      logger.info('Welcome email sent via Resend', { email });
-    } catch (error) {
-      logger.error('Failed to send welcome email via Resend', { email, error });
-    }
+    await sendWithFailover({
+      to: email,
+      subject,
+      html,
+      text: `Welcome to AgenticAI, ${name}! Your account is verified.`
+    });
   },
 
   verifyConnection: async (): Promise<boolean> => {
     if (process.env.RESEND_API_KEY) {
-      logger.info('Resend email service ready');
-    } else {
-      logger.info('RESEND_API_KEY not set — emails will be logged to console only');
+      logger.info('Resend email service configured');
+    }
+    if (process.env.SMTP_HOST) {
+      logger.info('SMTP email fallback configured');
+    }
+    if (!process.env.RESEND_API_KEY && !process.env.SMTP_HOST) {
+      logger.info('No email service configured — emails will be logged to console only');
     }
     return true;
   }
 };
+

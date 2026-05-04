@@ -1,10 +1,23 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { getCache, setCache } from '../lib/redis';
+import { getProviderHealth } from '../services/llm.service';
 
 import { statsRateLimit } from '../middleware/rate-limit.middleware';
 
 const router = Router();
+
+router.get('/health/providers', async (req, res) => {
+  try {
+    const health = getProviderHealth();
+    res.json({
+      success: true,
+      data: health
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to get provider health' });
+  }
+});
 
 router.get('/', statsRateLimit, async (req, res) => {
   res.header('Access-Control-Allow-Origin', '*');
