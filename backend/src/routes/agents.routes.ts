@@ -10,6 +10,7 @@ import { prisma } from '../lib/prisma';
 import { LLMService } from '../services/llm.service';
 import { AgentStatus } from "@prisma/client";
 import logger from '../lib/logger';
+import { sanitizeAgent } from "../lib/sanitize";
 
 const router = Router();
 
@@ -25,7 +26,7 @@ router.use(authMiddleware);
 router.get("/", async (req, res, next) => {
   try {
     const agents = await AgentService.listAgents({ userId: (req as any).user.id });
-    res.json({ success: true, data: agents });
+    res.json({ success: true, data: agents.map(a => sanitizeAgent(a, (req as any).user.id)) });
   } catch (err) {
     next(err);
   }
@@ -41,7 +42,7 @@ router.get("/", async (req, res, next) => {
 router.post("/", auditMiddleware, validateMiddleware(createAgentSchema), async (req, res, next) => {
   try {
     const agent = await AgentService.createAgent((req as any).user.id, req.body);
-    res.status(201).json({ success: true, data: agent });
+    res.status(201).json({ success: true, data: sanitizeAgent(agent, (req as any).user.id) });
   } catch (err) {
     next(err);
   }
@@ -60,7 +61,7 @@ router.get("/:id", async (req, res, next) => {
     if (!agent) {
       return res.status(404).json({ success: false, message: "Agent not found" });
     }
-    res.json({ success: true, data: agent });
+    res.json({ success: true, data: sanitizeAgent(agent, (req as any).user?.id) });
   } catch (err) {
     next(err);
   }
@@ -128,7 +129,7 @@ router.post('/:id/chat', authMiddleware, async (req, res) => {
 router.patch("/:id", auditMiddleware, async (req, res, next) => {
   try {
     const agent = await AgentService.updateAgent(req.params.id, (req as any).user.id, req.body);
-    res.json({ success: true, data: agent });
+    res.json({ success: true, data: sanitizeAgent(agent, (req as any).user.id) });
   } catch (err: any) {
     if (err.message.includes("unauthorized")) {
       return res.status(403).json({ success: false, message: err.message });
@@ -150,7 +151,7 @@ router.patch("/:id", auditMiddleware, async (req, res, next) => {
 router.put("/:id", auditMiddleware, async (req, res, next) => {
   try {
     const agent = await AgentService.updateAgent(req.params.id, (req as any).user.id, req.body);
-    res.json({ success: true, data: agent });
+    res.json({ success: true, data: sanitizeAgent(agent, (req as any).user.id) });
   } catch (err: any) {
     if (err.message.includes("unauthorized")) {
       return res.status(403).json({ success: false, message: err.message });

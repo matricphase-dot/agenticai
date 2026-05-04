@@ -7,6 +7,7 @@ import { logger } from '../lib/logger';
 import { marketplaceRateLimit } from '../middleware/rate-limit.middleware';
 
 import { redis } from '../lib/redis';
+import { sanitizeAgent } from '../lib/sanitize';
 
 const router = Router();
 
@@ -110,8 +111,8 @@ router.get('/', marketplaceRateLimit, async (req: Request, res: Response) => {
     const response = {
       success: true,
       data: {
-        agents,
-        featured,
+        agents: agents.map(a => sanitizeAgent(a)),
+        featured: featured.map(a => sanitizeAgent(a)),
         pagination: {
           total,
           page: Number(page),
@@ -205,7 +206,7 @@ router.get('/:id', optionalAuth, async (req: Request, res: Response) => {
 
     return res.json({ 
       success: true, 
-      data: { ...agent, hasAccess } 
+      data: { ...sanitizeAgent(agent, req.user?.id), hasAccess } 
     });
   } catch (error) {
     logger.error('Agent detail failed', { error });
