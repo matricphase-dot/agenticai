@@ -1,34 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const PROTECTED_ROUTES = ['/dashboard'];
-const AUTH_ROUTES = ['/auth/login', '/auth/signup'];
-
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const token = request.cookies.get('jwt_token')?.value;
-
-  const isProtected = PROTECTED_ROUTES.some(r => 
-    pathname.startsWith(r)
-  );
-  const isAuthRoute = AUTH_ROUTES.some(r => 
-    pathname.startsWith(r)
-  );
-
-  if (isProtected && !token) {
-    return NextResponse.redirect(
-      new URL('/auth/login', request.url)
-    );
-  }
-
-  if (isAuthRoute && token) {
-    return NextResponse.redirect(
-      new URL('/dashboard', request.url)
-    );
-  }
-
+  // Let all requests through
+  // Auth is handled client-side via localStorage Bearer tokens
+  // This avoids cross-domain cookie issues on Render
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/auth/:path*'],
+  matcher: [],
 };

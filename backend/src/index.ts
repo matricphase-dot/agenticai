@@ -43,25 +43,46 @@ app.use(helmet({
   },
 }));
 
-const allowedOrigins = [
-  'https://agenticai-frontend-3tam.onrender.com',
-  process.env.FRONTEND_URL,
-  ...(process.env.NODE_ENV === 'development' ? ['http://localhost:3000'] : []),
-].filter(Boolean);
-
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    const allowed = [
+      'https://agenticai-frontend-3tam.onrender.com',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      process.env.FRONTEND_URL,
+    ].filter(Boolean) as string[];
+
+    // Allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+
+    if (allowed.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error(`CORS: Origin ${origin} not allowed`));
+      logger.warn(`CORS blocked origin: ${origin}`);
+      // In production allow all for now to debug
+      if (process.env.NODE_ENV === 'production') {
+        callback(null, true); // Temporarily allow all origins
+      } else {
+        callback(new Error(`CORS: Origin ${origin} not allowed`));
+      }
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-API-Key',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+  ],
+  exposedHeaders: ['Set-Cookie'],
   maxAge: 86400,
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
 }));
+
 
 app.use(globalRateLimit);
 app.use(compression());

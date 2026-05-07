@@ -27,123 +27,122 @@ const COOKIE_OPTIONS = {
 };
 
 // POST /auth/signup
-router.post('/signup', rateLimitSignup, async (req: Request, res: Response) => {
+router.post('/signup', rateLimitSignup, async (req, res) => {
   try {
-    const { email, password, name } = signupSchema.parse({ body: req.body }).body;
-    const { user, verifyToken } = await AuthService.signup({ 
-      email, password, name 
+    const { email, password, name } = z.object({
+      email: z.string().email(),
+      password: z.string().min(8, 'Password must be at least 8 characters'),
+      name: z.string().min(2, 'Name must be at least 2 characters'),
+    }).parse(req.body);
+
+    const { user, verifyToken } = await AuthService.signup({
+      email, password, name
     });
 
-    await EmailService.sendVerification(user.email, user.name, verifyToken);
+    // Send verification email
+    try {
+      await EmailService.sendVerification(user.email, user.name, verifyToken);
+    } catch (emailError) {
+      logger.error('Failed to send verification email', { emailError });
+    }
 
-    // For development: return token directly
-    const devToken = process.env.NODE_ENV === 'development' 
-      ? verifyToken 
-      : undefined;
-
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
-      message: 'Account created. Please verify your email.',
-      data: { 
+      message: 'Account created! Please check your email to verify your account.',
+      data: {
         userId: user.id,
-        ...(devToken && { devVerifyToken: devToken })
+        // In development return token directly so testing works
+        ...(process.env.NODE_ENV === 'development' && {
+          devVerifyToken: verifyToken,
+          devVerifyUrl: `${process.env.FRONTEND_URL}/auth/verify-email?token=${verifyToken}`,
+        }),
       },
     });
   } catch (error: any) {
     if (error.message === 'EMAIL_EXISTS') {
-      return res.status(409).json({ 
-        success: false, 
+      return res.status(409).json({
+        success: false,
         code: 'EMAIL_EXISTS',
-        message: 'An account with this email already exists' 
+        message: 'An account with this email already exists. Please log in.',
       });
     }
     if (error.name === 'ZodError') {
-      return res.status(422).json({ 
-        success: false, 
+      return res.status(422).json({
+        success: false,
         code: 'VALIDATION_ERROR',
-        message: 'Invalid input', 
-        details: error.errors 
+        message: error.errors[0]?.message || 'Invalid input',
+        details: error.errors,
       });
     }
-    logger.error('Signup failed', { route: '/auth/signup', error });
-    return res.status(500).json({ 
-      success: false, 
+    logger.error('Signup failed', { error });
+    return res.status(500).json({
+      success: false,
       code: 'SIGNUP_FAILED',
-      message: 'Signup failed' 
+      message: 'Signup failed. Please try again.',
     });
   }
 });
 
 // POST /auth/login
-router.post('/login', rateLimitLogin, async (req: Request, res: Response) => {
+router.post('/login', rateLimitLogin, async (req, res) => {
   try {
-    const { email, password } = loginSchema.parse({ body: req.body }).body;
+    const { email, password } = z.object({
+      email: z.string().email(),
+      password: z.string().min(1),
+    }).parse(req.body);
+
     const result = await AuthService.login(email, password);
 
     if ('requires2FA' in result && result.requires2FA) {
-      return res.json({ 
-        success: true, 
+      return res.json({
+        success: true,
         requires2FA: true,
-        partialToken: (result as any).partialToken 
+        partialToken: result.partialToken,
       });
     }
 
-    // Set httpOnly cookie
-    const { token, user } = result as { token: string; user: any };
-    res.cookie('jwt_token', token, COOKIE_OPTIONS);
-
-    const refreshToken = await AuthService.generateRefreshToken(
-      user.id
-    );
-
-    // Set refresh token as separate httpOnly cookie
-    res.cookie('refresh_token', refreshToken, {
+    // Set cookie for same-domain (backup)
+    res.cookie('jwt_token', result.token, {
       httpOnly: true,
       secure: true,
-      sameSite: 'none',
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      path: '/api/auth/refresh', // Only sent to refresh endpoint
+      sameSite: 'none', // CRITICAL for cross-domain
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
     });
 
+    // ALSO return token in body for cross-domain localStorage auth
     return res.json({
       success: true,
-      data: { 
-        user,
-        token // Also return for mobile/API clients
+      data: {
+        token: result.token, // Frontend stores this in localStorage
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          name: result.user.name,
+          role: result.user.role,
+        },
       },
     });
   } catch (error: any) {
     if (error.message === 'INVALID_CREDENTIALS') {
-      // Audit log failed login
-      prisma.auditLog.create({
-        data: {
-          userId: 'ANONYMOUS',
-          action: 'LOGIN_FAILURE',
-          entityType: 'USER',
-          metadata: { email: req.body.email, reason: 'Invalid credentials' },
-          ipAddress: req.ip,
-          userAgent: req.headers['user-agent'],
-        }
-      }).catch(() => {});
-
-      return res.status(401).json({ 
-        success: false, 
+      return res.status(401).json({
+        success: false,
         code: 'INVALID_CREDENTIALS',
-        message: 'Invalid email or password' 
+        message: 'Invalid email or password',
       });
     }
     if (error.message === 'EMAIL_NOT_VERIFIED') {
-      return res.status(401).json({ 
-        success: false, 
+      return res.status(401).json({
+        success: false,
         code: 'EMAIL_NOT_VERIFIED',
-        message: 'Please verify your email before logging in' 
+        message: 'Please verify your email. Check your inbox or use a demo account.',
       });
     }
-    logger.error('Login failed', { route: '/auth/login', error });
-    return res.status(500).json({ 
-      success: false, 
+    logger.error('Login failed', { error });
+    return res.status(500).json({
+      success: false,
       code: 'LOGIN_FAILED',
-      message: 'Login failed' 
+      message: 'Login failed. Please try again.',
     });
   }
 });
@@ -165,35 +164,36 @@ router.post('/logout', authMiddleware, async (req: Request, res: Response) => {
   res.json({ success: true, message: 'Logged out' });
 });
 
-// GET /auth/verify-email?token=xxx
-router.get('/verify-email', async (req: Request, res: Response) => {
+// GET /api/auth/verify-email?token=xxx
+router.get('/verify-email', async (req, res) => {
   try {
     const { token } = req.query;
     if (!token || typeof token !== 'string') {
-      return res.status(400).json({ 
-        success: false, 
-        code: 'MISSING_TOKEN',
-        message: 'Verification token required' 
-      });
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/auth/verify-email?error=missing_token`
+      );
     }
 
     const user = await AuthService.verifyEmail(token);
-    await EmailService.sendWelcome(user.email, user.name);
-    
-    // Redirect to login with success message
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    return res.redirect(`${frontendUrl}/auth/login?verified=true`);
+
+    // Auto-login after verification
+    const jwtToken = AuthService.generateToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role ?? 'USER',
+    });
+
+    // Redirect to frontend with token so user is auto-logged in
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/auth/verify-email?token=${jwtToken}&verified=true`
+    );
   } catch (error: any) {
-    logger.error('Email verification failed', { 
-      route: '/auth/verify-email', error 
-    });
-    return res.status(400).json({ 
-      success: false, 
-      code: 'INVALID_TOKEN',
-      message: 'Invalid or expired verification token' 
-    });
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/auth/verify-email?error=invalid_token`
+    );
   }
 });
+
 
 // POST /auth/refresh
 router.post('/refresh', async (req, res) => {

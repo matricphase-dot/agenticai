@@ -15,7 +15,8 @@
     "reseed": "ts-node scripts/reseed.ts",
     "load-test": "ts-node scripts/load-test.ts",
     "demo-data": "ts-node scripts/demo-data.ts",
-    "audit": "ts-node scripts/audit-tests.ts"
+    "audit": "ts-node scripts/audit-tests.ts",
+    "check-auth": "ts-node scripts/check-auth.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",

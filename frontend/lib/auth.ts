@@ -1,88 +1,82 @@
-import { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import GoogleProvider from "next-auth/providers/google";
-import GitHubProvider from "next-auth/providers/github";
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import prisma from "@/lib/prisma";
-import bcrypt from "bcrypt";
+const TOKEN_KEY = 'agenticai_token';
+const USER_KEY = 'agenticai_user';
+const API = process.env.NEXT_PUBLIC_API_URL || 
+  'https://agenticai-backend-xao9.onrender.com';
 
-export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
-  session: {
-    strategy: "jwt",
+export const auth = {
+  getToken: (): string | null => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(TOKEN_KEY);
   },
-  pages: {
-    signIn: "/login",
-    error: "/login",
+
+  getUser: () => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const u = localStorage.getItem(USER_KEY);
+      return u ? JSON.parse(u) : null;
+    } catch { return null; }
   },
-  providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-    GitHubProvider({
-      clientId: process.env.GITHUB_ID!,
-      clientSecret: process.env.GITHUB_SECRET!,
-    }),
-    CredentialsProvider({
-      name: "Credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-        code: { label: "2FA Code", type: "text" },
+
+  setSession: (token: string, user: any) => {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  },
+
+  clearSession: () => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+  },
+
+  isLoggedIn: (): boolean => {
+    return Boolean(auth.getToken());
+  },
+
+  login: async (email: string, password: string) => {
+    const res = await fetch(`${API}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (data.success && data.data?.token) {
+      auth.setSession(data.data.token, data.data.user);
+    }
+    return data;
+  },
+
+  signup: async (name: string, email: string, password: string) => {
+    const res = await fetch(`${API}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password }),
+    });
+    return res.json();
+  },
+
+  logout: async () => {
+    auth.clearSession();
+    try {
+      await fetch(`${API}/api/auth/logout`, { method: 'POST' });
+    } catch {}
+  },
+
+  fetchWithAuth: async (endpoint: string, options: RequestInit = {}) => {
+    const token = auth.getToken();
+    const res = await fetch(`${API}/api${endpoint}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
       },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("Invalid credentials");
-        }
+    });
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-        });
+    if (res.status === 401) {
+      auth.clearSession();
+      window.location.href = '/auth/login';
+      return null;
+    }
 
-        if (!user || !user.passwordHash) {
-          throw new Error("User not found");
-        }
-
-        const isValid = await bcrypt.compare(
-          credentials.password,
-          user.passwordHash
-        );
-
-        if (!isValid) {
-          throw new Error("Invalid password");
-        }
-
-        // 2FA Check (Logic to be expanded)
-        if (user.twoFactorEnabled) {
-          if (!credentials.code) {
-            throw new Error("2FA_REQUIRED");
-          }
-          // Verify code here...
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        };
-      },
-    }),
-  ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.role = (user as any).role;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (token && session.user) {
-        (session.user as any).role = token.role;
-        (session.user as any).id = token.sub;
-      }
-      return session;
-    },
+    return res.json();
   },
 };
