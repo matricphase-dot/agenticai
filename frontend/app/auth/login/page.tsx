@@ -20,6 +20,11 @@ export default function LoginPage() {
       const result = await authApi.login(email, password);
       
       if (result.success) {
+        // Set client-side cookie for middleware visibility
+        const token = (result as any).data?.token;
+        if (token) {
+          document.cookie = `jwt_token=${token}; path=/; max-age=604800; SameSite=Lax; Secure`;
+        }
         router.push('/dashboard');
       } else {
         setError(

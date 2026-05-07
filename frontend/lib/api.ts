@@ -39,6 +39,7 @@ async function apiFetch<T>(
       return apiFetch<T>(endpoint, options, false);
     } else {
       if (typeof window !== 'undefined') {
+        document.cookie = 'jwt_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
         window.location.href = '/auth/login';
       }
     }
