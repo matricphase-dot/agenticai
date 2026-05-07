@@ -80,7 +80,7 @@ export const AuthService = {
           passwordHash,
           name: data.name,
           emailVerifyToken: verifyHash,
-          emailVerified: false,
+          emailVerified: true, // Auto-verify for live demo
         },
       });
 
