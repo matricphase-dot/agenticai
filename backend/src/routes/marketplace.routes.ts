@@ -61,12 +61,14 @@ function stripSensitiveFields(agent: any) {
 router.get('/', marketplaceRateLimit, async (req: Request, res: Response) => {
   res.header('Access-Control-Allow-Origin', '*');
   try {
-    // 1. Check Cache
-    const cacheKey = `marketplace:${JSON.stringify(req.query)}`;
+    // 1. Check Cache (Disabled temporarily to verify fix)
+    /*
+    const cacheKey = `marketplace:v2:${JSON.stringify(req.query)}`;
     const cached = await redis.get(cacheKey);
     if (cached) {
       return res.json(JSON.parse(cached));
     }
+    */
 
     const {
       search,
@@ -148,8 +150,8 @@ router.get('/', marketplaceRateLimit, async (req: Request, res: Response) => {
       },
     };
 
-    // 2. Set Cache (2 minutes)
-    await redis.setex(cacheKey, 120, JSON.stringify(response));
+    // 2. Set Cache (Disabled temporarily)
+    // await redis.setex(cacheKey, 120, JSON.stringify(response));
 
     return res.json(response);
   } catch (error) {
