@@ -11,17 +11,7 @@ import { sanitizeAgent } from '../lib/sanitize';
 
 const router = Router();
 
-/**
- * High-security response filter for public marketplace data.
- * Ensures proprietary configurations never leave the server.
- */
-function sanitizeAgentForPublic(agent: any) {
-  if (!agent) return null;
-  const { systemPrompt, inputSchema, outputSchema, ...safe } = agent;
-  return safe;
-}
-
-const MARKETPLACE_SELECT = {
+const AGENT_PUBLIC_SELECT = {
   id: true,
   name: true,
   slug: true,
@@ -36,10 +26,11 @@ const MARKETPLACE_SELECT = {
   currentVersion: true,
   tags: true,
   readme: true,
+  isPublic: true,
+  status: true,
   createdAt: true,
   updatedAt: true,
   userId: true,
-  teamId: true,
   user: {
     select: {
       id: true,
@@ -51,7 +42,19 @@ const MARKETPLACE_SELECT = {
   _count: {
     select: { reviews: true }
   },
-};
+} as const;
+
+/**
+ * Double protection: ensures sensitive fields never leave the server
+ */
+function stripSensitiveFields(agent: any) {
+  if (!agent) return null;
+  const cleaned = { ...agent };
+  delete cleaned.systemPrompt;
+  delete cleaned.inputSchema;
+  delete cleaned.outputSchema;
+  return cleaned;
+}
 
 // GET /marketplace — list public agents
 router.get('/', marketplaceRateLimit, async (req: Request, res: Response) => {
@@ -117,7 +120,7 @@ router.get('/', marketplaceRateLimit, async (req: Request, res: Response) => {
     const [agents, total] = await Promise.all([
       prisma.agent.findMany({
         where,
-        select: MARKETPLACE_SELECT,
+        select: AGENT_PUBLIC_SELECT,
         orderBy,
         take: Number(limit),
         skip,
@@ -133,8 +136,8 @@ router.get('/', marketplaceRateLimit, async (req: Request, res: Response) => {
     const response = {
       success: true,
       data: {
-        agents: agents.map(sanitizeAgentForPublic),
-        featured: featured.map(sanitizeAgentForPublic),
+        agents: agents.map(stripSensitiveFields),
+        featured: featured.map(stripSensitiveFields),
         pagination: {
           total,
           page: Number(page),
@@ -168,7 +171,7 @@ router.get('/:id', optionalAuth, async (req: Request, res: Response) => {
         status: 'PUBLISHED',
       },
       select: {
-        ...MARKETPLACE_SELECT,
+        ...AGENT_PUBLIC_SELECT,
         reviews: {
           include: {
             user: { 
@@ -209,7 +212,7 @@ router.get('/:id', optionalAuth, async (req: Request, res: Response) => {
     return res.json({ 
       success: true, 
       data: { 
-        ...sanitizeAgentForPublic(agent), 
+        ...stripSensitiveFields(agent), 
         hasAccess 
       } 
     });

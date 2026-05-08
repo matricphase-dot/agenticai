@@ -3,7 +3,7 @@ const prisma = new PrismaClient();
 
 async function main() {
   const userCount = await prisma.user.count();
-  const invocationCount = await prisma.invocationLog.count();
+  const invocationCount = await prisma.invocation.count();
   const agentCount = await prisma.agent.count();
   const unverifiedCount = await prisma.user.count({ where: { emailVerified: false } });
 
