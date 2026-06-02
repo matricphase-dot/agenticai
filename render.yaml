@@ -34,8 +34,4 @@ services:
     plan: free # Note: 25MB limit on free tier
     ipAllowList: [] # Allow all internal traffic
 
-databases:
-  # Service 3 — PostgreSQL
-  - name: agenticai-db
-    plan: free # Note: free tier expires after 90 days
-    postgresMajorVersion: 15
+
