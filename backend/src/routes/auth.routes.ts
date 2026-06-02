@@ -143,6 +143,7 @@ router.post('/login', rateLimitLogin, async (req, res) => {
       success: false,
       code: 'LOGIN_FAILED',
       message: 'Login failed. Please try again.',
+      debug: error.message,
     });
   }
 });
