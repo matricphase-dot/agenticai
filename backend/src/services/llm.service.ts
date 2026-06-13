@@ -300,7 +300,7 @@ const PROVIDER_CHAIN: LLMProvider[] = [
   {
     name: 'ollama',
     call: callOllama,
-    hasKey: () => Boolean(process.env.OLLAMA_URL),
+    hasKey: () => true, // Ollama doesn't need an API key and defaults to localhost:11434
     description: 'Ollama - Self-hosted, completely free',
   },
   {
