@@ -64,7 +64,10 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "winston": "^3.13.0",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "prisma": "^5.12.1",
+    "typescript": "^6.0.3",
+    "ts-node": "^10.9.2"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
@@ -81,10 +84,7 @@
     "@types/node": "^20.19.39",
     "@types/nodemailer": "^6.4.14",
     "@types/pdf-parse": "^1.1.4",
-    "nodemon": "^3.1.0",
-    "prisma": "^5.12.1",
-    "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+    "nodemon": "^3.1.0"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
