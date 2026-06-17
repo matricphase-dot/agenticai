@@ -14,7 +14,7 @@ export default function MonitoringPage() {
 
   useEffect(() => {
     agentsApi.list().then(res => {
-      if (res.success) setAgents((res.data as any)?.agents || []);
+      if (res.success) setAgents(Array.isArray(res.data) ? res.data : (res.data as any)?.agents || []);
     });
   }, []);
 

@@ -19,7 +19,7 @@ export default function InvokePage() {
       agentsApi.list({ status: 'PUBLISHED' }),
       keysApi.list(),
     ]).then(([agentsRes, keysRes]) => {
-      const agentList = (agentsRes.data as any)?.agents || [];
+      const agentList = Array.isArray(agentsRes.data) ? agentsRes.data : (agentsRes.data as any)?.agents || [];
       setAgents(agentList);
       if (agentList.length > 0) setSelectedAgent(agentList[0].id);
 
