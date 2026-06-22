@@ -277,7 +277,7 @@ export default function MarketplaceAgentPage() {
                   </Link>
                 </>
               ) : (
-                <Link href={`/auth/signup?redirect=/dashboard/invoke?agentId=${agent.id}`}
+                <Link href={`/auth/signup?redirect=${encodeURIComponent('/dashboard/invoke?agentId=' + agent.id)}`}
                   className="block w-full text-center bg-purple-600 text-white font-bold py-3 rounded-lg hover:bg-purple-500 transition mt-2 text-sm">
                   Sign up to use API
                 </Link>
