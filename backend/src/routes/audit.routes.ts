@@ -50,8 +50,6 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-export default router;
-
 // POST /audit/run-secrets-audit (TEMPORARY)
 router.post('/run-secrets-audit', adminOnly, async (req: Request, res: Response) => {
   try {
@@ -111,3 +109,5 @@ router.post('/run-secrets-audit', adminOnly, async (req: Request, res: Response)
     return res.status(500).json({ success: false, message: error.message });
   }
 });
+
+export default router;
