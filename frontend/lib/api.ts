@@ -41,6 +41,7 @@ export async function apiRequest<T>(
 export { auth };
 export const authApi = {
   login: auth.login,
+  verify2FA: auth.verify2FA,
   signup: auth.signup,
   logout: auth.logout,
   me: () => apiRequest('/auth/me'),
@@ -198,4 +199,19 @@ export const pipelinesApi = {
     method: 'POST', body: JSON.stringify({ input })
   }),
   delete: (id: string) => apiRequest(`/pipelines/${id}`, { method: 'DELETE' }),
+};
+
+export const reportsApi = {
+  create: (agentId: string, reason: string, details: string) =>
+    apiRequest('/reports', {
+      method: 'POST',
+      body: JSON.stringify({ agentId, reason, details }),
+    }),
+  list: (status?: string) =>
+    apiRequest(`/reports${status && status !== 'all' ? `?status=${status}` : ''}`),
+  resolve: (id: string, status: string, adminNotes?: string) =>
+    apiRequest(`/reports/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, adminNotes }),
+    }),
 };

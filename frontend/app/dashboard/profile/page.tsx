@@ -1,23 +1,27 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { authApi } from "@/lib/api";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Camera, User, Mail, Link as LinkIcon, Loader2, Save } from "lucide-react";
 
 export default function ProfilePage() {
-  const { data: session, update } = useSession();
+  const [session, setSession] = useState<any>(null);
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
   const [avatar, setAvatar] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (session?.user) {
-      setName(session.user.name || "");
-      // Fetch profile data here if needed
-    }
-  }, [session]);
+    authApi.me().then(res => {
+      if (res.success && res.data) {
+        setSession({ user: res.data });
+        setName(res.data.name || "");
+        setAvatar(res.data.avatar || "");
+        setBio(res.data.bio || "");
+      }
+    });
+  }, []);
 
   const onSave = async () => {
     setIsLoading(true);
@@ -30,7 +34,9 @@ export default function ProfilePage() {
 
       if (!res.ok) throw new Error(await res.text());
 
-      await update({ name }); // Update next-auth session
+      // Optionally refresh user data
+      const newSession = await authApi.me();
+      if (newSession.success) setSession({ user: newSession.data });
       toast.success("Profile updated!");
     } catch (error: any) {
       toast.error(error.message || "Failed to update profile.");

@@ -12,7 +12,7 @@ export const GovernanceService = {
       where: { userId, status: 'ACTIVE' },
       _sum: { amount: true },
     });
-    return result._sum.amount || 0;
+    return Number(result._sum.amount || 0);
   },
 
   // Get delegated voting power (power delegated TO this user)
@@ -36,7 +36,7 @@ export const GovernanceService = {
       _sum: { amount: true },
     });
 
-    return result._sum.amount || 0;
+    return Number(result._sum.amount || 0);
   },
 
   // Total effective voting power (own + delegated)
@@ -265,17 +265,17 @@ export const GovernanceService = {
     }
 
     const totalVotes = 
-      proposal.forVotes + 
-      proposal.againstVotes + 
-      proposal.abstainVotes;
+      Number(proposal.forVotes) + 
+      Number(proposal.againstVotes) + 
+      Number(proposal.abstainVotes);
 
     // Get total staked for quorum calculation
     const totalStakedResult = await prisma.balance.aggregate({
       _sum: { lockedTokens: true },
     });
-    const totalStaked = totalStakedResult._sum.lockedTokens || 1;
+    const totalStaked = Number(totalStakedResult._sum.lockedTokens || 1);
 
-    const quorumReached = (totalVotes / totalStaked) >= proposal.quorum;
+    const quorumReached = (totalVotes / totalStaked) >= Number(proposal.quorum);
 
     // Check if requesting user has voted
     let myVote: any = null;
@@ -294,7 +294,7 @@ export const GovernanceService = {
       ...proposal,
       totalVotes,
       quorumReached,
-      quorumRequired: Math.floor(totalStaked * proposal.quorum),
+      quorumRequired: Math.floor(totalStaked * Number(proposal.quorum)),
       myVote,
     };
   },
@@ -357,22 +357,22 @@ export const GovernanceService = {
     for (const proposal of expired) {
       try {
         const totalVotes = 
-          proposal.forVotes + 
-          proposal.againstVotes + 
-          proposal.abstainVotes;
+          Number(proposal.forVotes) + 
+          Number(proposal.againstVotes) + 
+          Number(proposal.abstainVotes);
 
         // Get total active staked tokens for quorum check
         const totalStakedResult = await prisma.balance.aggregate({
           _sum: { lockedTokens: true },
         });
         const totalStaked = 
-          totalStakedResult._sum.lockedTokens || 1;
+          Number(totalStakedResult._sum.lockedTokens || 1);
 
         const quorumReached = 
-          (totalVotes / totalStaked) >= proposal.quorum;
+          (totalVotes / totalStaked) >= Number(proposal.quorum);
 
         const passed = quorumReached && 
-          proposal.forVotes > proposal.againstVotes;
+          Number(proposal.forVotes) > Number(proposal.againstVotes);
 
         await prisma.proposal.update({
           where: { id: proposal.id },

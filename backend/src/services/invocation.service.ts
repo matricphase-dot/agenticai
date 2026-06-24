@@ -272,9 +272,9 @@ export const InvocationService = {
       case 'FREE':
         return 0;
       case 'PER_INVOCATION':
-        return agent.pricePerCall || 0;
+        return Number(agent.pricePerCall || 0);
       case 'PER_TOKEN':
-        return (agent.pricePerToken || 0) * tokensUsed;
+        return Number(agent.pricePerToken || 0) * tokensUsed;
       default:
         return 0;
     }
@@ -319,8 +319,8 @@ export const InvocationService = {
       if (params.agentOwnerId !== params.callerId) {
         await tx.balance.upsert({
           where: { userId: params.agentOwnerId },
-          create: { userId: params.agentOwnerId, credits: creatorShare },
-          update: { credits: { increment: creatorShare } },
+          create: { userId: params.agentOwnerId, earnedCredits: creatorShare },
+          update: { earnedCredits: { increment: creatorShare } },
         });
 
         await tx.transaction.create({
@@ -343,9 +343,9 @@ export const InvocationService = {
           where: { userId: params.nodeOwnerId },
           create: { 
             userId: params.nodeOwnerId, 
-            credits: NODE_REWARD_BASE 
+            earnedCredits: NODE_REWARD_BASE 
           },
-          update: { credits: { increment: NODE_REWARD_BASE } },
+          update: { earnedCredits: { increment: NODE_REWARD_BASE } },
         });
 
         await tx.transaction.create({

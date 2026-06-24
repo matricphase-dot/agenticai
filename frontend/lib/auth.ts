@@ -44,6 +44,19 @@ export const auth = {
     return data;
   },
 
+  verify2FA: async (email: string | null, code: string, partialToken: string | null) => {
+    const res = await fetch(`${API}/api/auth/verify-2fa`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code, partialToken }),
+    });
+    const data = await res.json();
+    if (data.success && data.data?.token) {
+      auth.setSession(data.data.token, data.data.user);
+    }
+    return data;
+  },
+
   signup: async (name: string, email: string, password: string) => {
     const res = await fetch(`${API}/api/auth/signup`, {
       method: 'POST',

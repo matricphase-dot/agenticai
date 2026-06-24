@@ -37,7 +37,7 @@ export const StakingService = {
     const balance = await prisma.balance.findUnique({
       where: { userId },
     });
-    if (!balance || balance.tokenBalance < amount) {
+    if (!balance || Number(balance.tokenBalance) < amount) {
       throw Object.assign(
         new Error('Insufficient token balance'),
         { code: 'INSUFFICIENT_TOKENS', status: 402 }
@@ -284,7 +284,7 @@ export const StakingService = {
       .filter(e => e.metadata && typeof e.metadata === 'object')
       .map(e => ({
         agentId: (e.metadata as any).agentId as string,
-        totalEarnings: e._sum.amount || 0,
+        totalEarnings: Number(e._sum.amount || 0),
       }))
       .filter(e => e.agentId && e.totalEarnings > 0);
 
@@ -304,14 +304,14 @@ export const StakingService = {
 
         if (stakes.length === 0) continue;
 
-        const totalStaked = stakes.reduce((sum, s) => sum + s.amount, 0);
+        const totalStaked = stakes.reduce((sum, s) => sum + Number(s.amount), 0);
 
         const stakerRewards: { userId: string; amount: number }[] = [];
 
         // Distribute proportionally
         await prisma.$transaction(async (tx) => {
           for (const stake of stakes) {
-            const proportion = stake.amount / totalStaked;
+            const proportion = Number(stake.amount) / totalStaked;
             const rewardAmount = Math.floor(
               rewardPool * proportion * 10000
             ) / 10000; // 4 decimal places
@@ -391,7 +391,7 @@ export const StakingService = {
     }
 
     const totalAmount = unclaimed.reduce(
-      (sum, r) => sum + r.amount, 0
+      (sum, r) => sum + Number(r.amount), 0
     );
 
     await prisma.$transaction(async (tx) => {
@@ -457,16 +457,16 @@ export const StakingService = {
 
     const totalStaked = stakes
       .filter(s => s.status === 'ACTIVE')
-      .reduce((sum, s) => sum + s.amount, 0);
+      .reduce((sum, s) => sum + Number(s.amount), 0);
 
-    const claimableRewards = pendingRewards._sum.amount || 0;
+    const claimableRewards = Number(pendingRewards._sum.amount || 0);
 
     return {
       stakes,
       totalStaked,
       claimableRewards,
-      tokenBalance: balance?.tokenBalance || 0,
-      lockedTokens: balance?.lockedTokens || 0,
+      tokenBalance: Number(balance?.tokenBalance || 0),
+      lockedTokens: Number(balance?.lockedTokens || 0),
     };
   },
 };

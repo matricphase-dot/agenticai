@@ -151,12 +151,12 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         {[
           { label: 'Create Agent', href: '/dashboard/agents/create', icon: '🤖' },
           { label: 'Top Up Credits', href: '/dashboard/billing', icon: '💳' },
-          { label: 'Stake Tokens', href: '/dashboard/staking', icon: '🪙' },
-          { label: 'View Proposals', href: '/dashboard/governance', icon: '🗳️' },
+          // { label: 'Stake Tokens', href: '/dashboard/staking', icon: '🪙' },
+          // { label: 'View Proposals', href: '/dashboard/governance', icon: '🗳️' },
         ].map(action => (
           <a key={action.href} href={action.href}
              className="bg-[#111111] border border-[#1E1E1E] 

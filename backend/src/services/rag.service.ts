@@ -60,7 +60,7 @@ async function extractText(
 ): Promise<string> {
   if (fileType === 'application/pdf' || filePath.endsWith('.pdf')) {
     const buffer = fs.readFileSync(filePath);
-    const data = await pdfParse(buffer);
+    const data = await (pdfParse as any)(buffer);
     return data.text;
   }
   

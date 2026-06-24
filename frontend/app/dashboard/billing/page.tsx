@@ -12,23 +12,28 @@ export default function BillingPage() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'INR' | 'USD'>('INR');
+  const [activeTab, setActiveTab] = useState<'INR' | 'USD' | 'PAYOUT'>('INR');
+  const [payouts, setPayouts] = useState<any[]>([]);
+  const [payoutMethod, setPayoutMethod] = useState('');
+  const [payoutDetails, setPayoutDetails] = useState('');
   const [customAmount, setCustomAmount] = useState('');
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [processing, setProcessing] = useState(false);
   const [config, setConfig] = useState({ paypalClientId: '', razorpayKeyId: '' });
 
   const fetchBalance = async () => {
-    const [balRes, txRes, userRes, configRes] = await Promise.all([
+    const [balRes, txRes, userRes, configRes, payoutRes] = await Promise.all([
       billingApi.balance(),
       billingApi.transactions({ limit: '20' }),
       userApi.me(),
-      billingApi.getConfig()
+      billingApi.getConfig(),
+      fetch('/api/billing/payout', { headers: { Authorization: `Bearer ${localStorage.getItem('agenticai_token')}` } }).then(r => r.json())
     ]);
     if (balRes.success) setBalance(balRes.data);
     if (txRes.success) setTransactions((txRes.data as any)?.transactions || []);
     if (userRes.success) setUser(userRes.data);
     if (configRes.success) setConfig(configRes.data);
+    if (payoutRes.success) setPayouts(payoutRes.data);
     setLoading(false);
   };
 
@@ -103,10 +108,49 @@ export default function BillingPage() {
     }
   };
 
-  if (loading) return <div className="p-6 space-y-4 animate-pulse">
-    <div className="h-32 bg-zinc-900 rounded-xl" />
-    <div className="h-64 bg-zinc-900 rounded-xl" />
-  </div>;
+  const handlePayoutRequest = async () => {
+    const amount = selectedAmount || Number(customAmount);
+    if (!amount || amount < 5000) {
+      toast.error('Minimum payout amount is 5000 credits ($50)');
+      return;
+    }
+    if (!payoutMethod || !payoutDetails) {
+      toast.error('Please provide payout method and details');
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      const res = await fetch('/api/billing/payout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('agenticai_token')}`
+        },
+        body: JSON.stringify({ amount, payoutMethod, payoutDetails })
+      });
+      const data = await res.json();
+      
+      if (!data.success) throw new Error(data.message);
+
+      toast.success('Payout requested successfully!');
+      setCustomAmount('');
+      setPayoutDetails('');
+      setPayoutMethod('');
+      fetchBalance();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to request payout');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  if (loading) return (
+    <div className="p-6 space-y-4 animate-pulse">
+      <div className="h-32 bg-zinc-900 rounded-xl" />
+      <div className="h-64 bg-zinc-900 rounded-xl" />
+    </div>
+  );
 
   return (
     <div className="p-6 space-y-6 max-w-4xl mx-auto">
@@ -127,14 +171,14 @@ export default function BillingPage() {
           <p className="text-zinc-600 text-xs mt-2">1 credit = 1 free agent invocation</p>
         </div>
         <div className="bg-[#111111] border border-[#1E1E1E] rounded-2xl p-6">
-          <p className="text-zinc-500 text-sm mb-1">AGNT Tokens</p>
+          <p className="text-zinc-500 text-sm mb-1">Earned Credits</p>
           <div className="flex items-baseline gap-2">
             <span className="text-4xl font-bold text-white">
-              {balance?.tokenBalance?.toLocaleString() || 0}
+              {balance?.earnedCredits?.toLocaleString() || 0}
             </span>
-            <span className="text-zinc-400 text-sm font-medium">AGNT</span>
+            <span className="text-zinc-400 text-sm font-medium">Credits</span>
           </div>
-          <p className="text-zinc-600 text-xs mt-2">Used for paid agent invocations and staking</p>
+          <p className="text-zinc-600 text-xs mt-2">Earned from agent invocations. Withdrawable.</p>
         </div>
       </div>
 
@@ -152,6 +196,12 @@ export default function BillingPage() {
             className={`flex-1 py-4 text-sm font-medium transition ${activeTab === 'USD' ? 'bg-purple-600/5 text-white border-b-2 border-purple-500' : 'text-zinc-500 hover:text-zinc-300'}`}
           >
             International Payments ($)
+          </button>
+          <button 
+            onClick={() => { setActiveTab('PAYOUT'); setSelectedAmount(null); setCustomAmount(''); }}
+            className={`flex-1 py-4 text-sm font-medium transition ${activeTab === 'PAYOUT' ? 'bg-purple-600/5 text-white border-b-2 border-purple-500' : 'text-zinc-500 hover:text-zinc-300'}`}
+          >
+            Request Payout
           </button>
         </div>
 
@@ -198,7 +248,7 @@ export default function BillingPage() {
                 {processing ? 'Processing...' : `Pay ₹${selectedAmount || customAmount || 0} with Razorpay`}
               </button>
             </div>
-          ) : (
+          ) : activeTab === 'USD' ? (
             <div className="space-y-6">
               <div>
                 <label className="text-sm text-zinc-400 mb-3 block">Select Amount</label>
@@ -237,6 +287,86 @@ export default function BillingPage() {
               >
                 {processing ? 'Processing...' : `Pay $${selectedAmount || customAmount || 0} with Razorpay`}
               </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="bg-purple-600/5 border border-purple-500/10 rounded-xl p-4 flex flex-col gap-2">
+                <span className="text-sm text-zinc-400">Available to Withdraw</span>
+                <span className="text-xl font-bold text-white">
+                  {(balance?.earnedCredits || 0).toLocaleString()} Credits
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-zinc-400 mb-3 block">Payout Method</label>
+                  <select
+                    value={payoutMethod}
+                    onChange={e => setPayoutMethod(e.target.value)}
+                    className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-xl px-4 py-4 focus:outline-none focus:border-purple-500 transition appearance-none"
+                  >
+                    <option value="">Select Method</option>
+                    <option value="UPI">UPI (India Only)</option>
+                    <option value="BANK_TRANSFER">Bank Transfer</option>
+                    <option value="PAYPAL">PayPal</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm text-zinc-400 mb-3 block">Payout Details</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. UPI ID or Account details"
+                    value={payoutDetails}
+                    onChange={e => setPayoutDetails(e.target.value)}
+                    className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-xl px-4 py-4 focus:outline-none focus:border-purple-500 transition"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm text-zinc-400 mb-3 block">Withdrawal Amount (Credits)</label>
+                <input
+                  type="number"
+                  placeholder="Min 5000 Credits ($50)"
+                  value={customAmount}
+                  onChange={e => { setCustomAmount(e.target.value); setSelectedAmount(null); }}
+                  className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-xl px-4 py-4 focus:outline-none focus:border-purple-500 transition"
+                />
+              </div>
+
+              <button
+                onClick={handlePayoutRequest}
+                disabled={processing || !customAmount || !payoutMethod || !payoutDetails}
+                className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 rounded-xl transition disabled:opacity-50"
+              >
+                {processing ? 'Processing...' : `Request Payout of ${customAmount || 0} Credits`}
+              </button>
+
+              {payouts.length > 0 && (
+                <div className="mt-8">
+                  <h3 className="text-lg font-bold text-white mb-4">Payout History</h3>
+                  <div className="space-y-4">
+                    {payouts.map((p: any) => (
+                      <div key={p.id} className="flex justify-between items-center py-4 border-b border-zinc-800 last:border-0">
+                        <div>
+                          <p className="text-white font-medium">{p.payoutMethod} - {p.payoutDetails}</p>
+                          <p className="text-zinc-500 text-xs">{new Date(p.createdAt).toLocaleString()}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-white">{p.amount.toLocaleString()} Credits</p>
+                          <span className={`text-xs font-bold ${
+                            p.status === 'COMPLETED' ? 'text-green-400' :
+                            p.status === 'REJECTED' ? 'text-red-400' :
+                            'text-yellow-400'
+                          }`}>
+                            {p.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

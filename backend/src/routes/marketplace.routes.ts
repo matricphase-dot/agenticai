@@ -347,16 +347,16 @@ router.post(
         });
       }
 
-      const cost = agent.pricingModel === 'FREE' 
+      const costValue = agent.pricingModel === 'FREE' 
         ? 0 
-        : agent.pricePerCall || 0;
+        : Number(agent.pricePerCall || 0);
 
-      if (cost > 0) {
+      if (costValue > 0) {
         // Check credits
         const balance = await prisma.balance.findUnique({
           where: { userId: req.user!.id },
         });
-        if (!balance || balance.credits < cost) {
+        if (!balance || Number(balance.credits) < costValue) {
           return res.status(402).json({
             success: false,
             code: 'INSUFFICIENT_CREDITS',
@@ -370,14 +370,14 @@ router.post(
           data: {
             agentId: agent.id,
             userId: req.user!.id,
-            amount: cost,
+            amount: costValue,
           },
         });
 
-        if (cost > 0) {
+        if (costValue > 0) {
           await tx.balance.update({
             where: { userId: req.user!.id },
-            data: { credits: { decrement: cost } },
+            data: { credits: { decrement: costValue } },
           });
         }
 

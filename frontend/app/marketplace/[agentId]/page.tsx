@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { marketplaceApi, stakingApi } from '@/lib/api';
+import { marketplaceApi, stakingApi, reportsApi } from '@/lib/api';
 import { API_URL } from '@/lib/config';
 import { auth } from '@/lib/auth';
 
@@ -19,6 +19,12 @@ export default function MarketplaceAgentPage() {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('HARMFUL_OUTPUT');
+  const [reportDetails, setReportDetails] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
 
   useEffect(() => {
     setIsLoggedIn(auth.isLoggedIn());
@@ -118,16 +124,24 @@ export default function MarketplaceAgentPage() {
                     </div>
                   </div>
                 </div>
-                <span className={`text-sm font-semibold px-3 py-1.5 rounded-lg ${
-                  agent.pricingModel === 'FREE'
-                    ? 'bg-green-500/20 text-green-400'
-                    : 'bg-purple-500/20 text-purple-400'
-                }`}>
-                  {agent.pricingModel === 'FREE' ? 'Free'
-                    : agent.pricingModel === 'PER_INVOCATION'
-                    ? `$${agent.pricePerCall}/call`
-                    : `$${agent.pricePerToken}/token`}
-                </span>
+                <div className="flex flex-col items-end gap-2">
+                  <span className={`text-sm font-semibold px-3 py-1.5 rounded-lg ${
+                    agent.pricingModel === 'FREE'
+                      ? 'bg-green-500/20 text-green-400'
+                      : 'bg-purple-500/20 text-purple-400'
+                  }`}>
+                    {agent.pricingModel === 'FREE' ? 'Free'
+                      : agent.pricingModel === 'PER_INVOCATION'
+                      ? `$${agent.pricePerCall}/call`
+                      : `$${agent.pricePerToken}/token`}
+                  </span>
+                  {isLoggedIn && (
+                    <button onClick={() => setShowReportModal(true)}
+                      className="text-zinc-500 hover:text-red-400 text-xs flex items-center gap-1 transition">
+                      🚩 Report this agent
+                    </button>
+                  )}
+                </div>
               </div>
               <p className="text-zinc-300 leading-relaxed">{agent.description}</p>
               {agent.tags?.length > 0 && (
@@ -284,7 +298,8 @@ export default function MarketplaceAgentPage() {
               )}
             </div>
 
-            {/* Stake */}
+            {/* Stake (Hidden for v1) */}
+            {/*
             <div className="bg-[#111111] border border-[#1E1E1E] rounded-xl p-5">
               <h3 className="text-white font-medium mb-1">Stake AGNT</h3>
               <p className="text-zinc-400 text-xs mb-3">
@@ -314,6 +329,7 @@ export default function MarketplaceAgentPage() {
                 {staking ? 'Staking...' : 'Stake Tokens'}
               </button>
             </div>
+            */}
 
             {/* Technical */}
             <div className="bg-[#111111] border border-[#1E1E1E] rounded-xl p-5">
@@ -347,6 +363,84 @@ export default function MarketplaceAgentPage() {
           </div>
         </div>
       </div>
+
+      {showReportModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+             onClick={() => setShowReportModal(false)}>
+          <div className="bg-[#111111] border border-[#1E1E1E] rounded-xl p-6 max-w-md w-full"
+               onClick={e => e.stopPropagation()}>
+            {reportSuccess ? (
+              <div className="text-center py-4">
+                <p className="text-3xl mb-3">✅</p>
+                <p className="text-white font-medium mb-1">
+                  Report submitted
+                </p>
+                <p className="text-zinc-400 text-sm">
+                  Our team will review this shortly.
+                </p>
+                <button onClick={() => { 
+                  setShowReportModal(false); 
+                  setReportSuccess(false); 
+                }}
+                  className="mt-4 text-purple-400 text-sm hover:text-purple-300">
+                  Close
+                </button>
+              </div>
+            ) : (
+              <>
+                <h3 className="text-white font-semibold mb-4">
+                  Report this agent
+                </h3>
+                <label className="text-zinc-400 text-sm block mb-1">
+                  Reason
+                </label>
+                <select value={reportReason}
+                  onChange={e => setReportReason(e.target.value)}
+                  className="w-full bg-[#1A1A1A] border border-[#2A2A2A] text-white rounded-lg px-3 py-2 mb-4 text-sm focus:outline-none focus:border-purple-500/50">
+                  <option value="HARMFUL_OUTPUT">Harmful or unsafe output</option>
+                  <option value="ILLEGAL_CONTENT">Illegal content</option>
+                  <option value="DECEPTIVE_PRACTICE">Deceptive / misleading</option>
+                  <option value="PRIVACY_VIOLATION">Privacy violation</option>
+                  <option value="MISINFORMATION">Misinformation</option>
+                  <option value="SPAM">Spam</option>
+                  <option value="OTHER">Other</option>
+                </select>
+                <label className="text-zinc-400 text-sm block mb-1">
+                  Details (minimum 10 characters)
+                </label>
+                <textarea value={reportDetails}
+                  onChange={e => setReportDetails(e.target.value)}
+                  rows={4} placeholder="Describe what happened..."
+                  className="w-full bg-[#1A1A1A] border border-[#2A2A2A] text-white rounded-lg px-3 py-2 resize-none text-sm focus:outline-none focus:border-purple-500/50"/>
+                
+                {reportSubmitting && <p className="text-zinc-400 text-xs mt-2">Submitting...</p>}
+                
+                <div className="flex gap-3 mt-4">
+                  <button onClick={() => setShowReportModal(false)}
+                    className="flex-1 border border-zinc-700 text-zinc-300 py-2 rounded-lg hover:border-zinc-500 transition text-sm">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (reportDetails.length < 10) return;
+                      setReportSubmitting(true);
+                      const res = await reportsApi.create(
+                        agentId, reportReason, reportDetails
+                      );
+                      if (res.success) setReportSuccess(true);
+                      else alert(res.message || 'Report failed');
+                      setReportSubmitting(false);
+                    }}
+                    disabled={reportSubmitting || reportDetails.length < 10}
+                    className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-500 transition text-sm disabled:opacity-50">
+                    {reportSubmitting ? 'Submitting...' : 'Submit Report'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

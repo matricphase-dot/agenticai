@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { authApi } from "@/lib/api";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ShieldCheck, Loader2 } from "lucide-react";
@@ -14,6 +14,7 @@ function TwoFactor() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email");
+  const partialToken = searchParams.get("partialToken");
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,15 +23,10 @@ function TwoFactor() {
     setIsLoading(true);
 
     try {
-      const res = await signIn("credentials", {
-        email,
-        code,
-        redirect: false,
-        callbackUrl: "/dashboard",
-      });
+      const res = await authApi.verify2FA(email, code, partialToken);
 
-      if (res?.error) {
-        throw new Error(res.error);
+      if (!res.success) {
+        throw new Error(res.message || "Invalid 2FA code.");
       }
 
       toast.success("2FA Verified!");

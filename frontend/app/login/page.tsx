@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { authApi } from "@/lib/api";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -20,21 +20,15 @@ function LoginForm() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
     try {
-      const res = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-        callbackUrl,
-      });
+      const res = await authApi.login(email, password);
 
-      if (res?.error) {
-        if (res.error === "2FA_REQUIRED") {
-          router.push(`/2fa?email=${encodeURIComponent(email)}`);
+      if (!res.success) {
+        if (res.requires2FA) {
+          router.push(`/2fa?email=${encodeURIComponent(email)}&partialToken=${res.partialToken}`);
           return;
         }
-        throw new Error(res.error);
+        throw new Error(res.message);
       }
 
       toast.success("Logged in successfully!");
@@ -47,7 +41,7 @@ function LoginForm() {
   };
 
   const socialLogin = (provider: "google" | "github") => {
-    signIn(provider, { callbackUrl: "/dashboard" });
+    toast.error("Social login not configured yet.");
   };
 
   return (

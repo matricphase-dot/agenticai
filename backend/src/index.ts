@@ -117,6 +117,7 @@ import webhooksRouter from "./routes/webhooks.routes";
 import { ragRouter } from "./routes/rag.routes";
 import { schedulesRouter } from "./routes/schedules.routes";
 import { pipelinesRouter } from "./routes/pipelines.routes";
+import { reportsRouter } from "./routes/reports.routes";
 import { SchedulerService } from './services/scheduler.service';
 
 app.use('/api/auth', authRouter);
@@ -141,6 +142,7 @@ app.use('/api/webhooks', webhooksRouter);
 app.use('/api', ragRouter);
 app.use('/api', schedulesRouter);
 app.use('/api', pipelinesRouter);
+app.use('/api/reports', reportsRouter);
 
 // Documentation
 setupSwagger(app);

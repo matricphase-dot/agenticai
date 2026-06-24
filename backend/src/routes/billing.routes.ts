@@ -102,14 +102,12 @@ router.get('/transactions', async (req: Request, res: Response) => {
 
     return res.json({
       success: true,
-      data: {
-        transactions,
-        pagination: {
-          total,
-          page: Number(page),
-          limit: Number(limit),
-          pages: Math.ceil(total / Number(limit)),
-        },
+      data: transactions,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        totalPages: Math.ceil(total / Number(limit)),
       },
     });
   } catch (error) {
@@ -119,6 +117,85 @@ router.get('/transactions', async (req: Request, res: Response) => {
     });
   }
 });
+
+// POST /billing/payout
+router.post('/payout', async (req: Request, res: Response) => {
+  try {
+    const { amount, payoutMethod, payoutDetails } = z.object({
+      amount: z.number().min(5000), // $50 minimum
+      payoutMethod: z.string().min(1),
+      payoutDetails: z.string().min(1),
+    }).parse(req.body);
+
+    const balance = await prisma.balance.findUnique({
+      where: { userId: req.user!.id },
+    });
+
+    if (!balance || balance.earnedCredits.lessThan(amount)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Insufficient earned credits for payout',
+      });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Deduct from earnedCredits
+      await tx.balance.update({
+        where: { userId: req.user!.id },
+        data: { earnedCredits: { decrement: amount } },
+      });
+
+      // Create transaction record
+      await tx.transaction.create({
+        data: {
+          userId: req.user!.id,
+          type: 'PAYOUT',
+          amount: -amount,
+          description: `Payout request via ${payoutMethod}`,
+        },
+      });
+
+      // Create PayoutRequest
+      const payoutReq = await tx.payoutRequest.create({
+        data: {
+          userId: req.user!.id,
+          amount,
+          payoutMethod,
+          payoutDetails,
+          status: 'PENDING',
+        },
+      });
+
+      return payoutReq;
+    });
+
+    return res.json({
+      success: true,
+      data: result,
+      message: 'Payout requested successfully',
+    });
+  } catch (error: any) {
+    logger.error('Payout request failed', { error });
+    if (error.name === 'ZodError') {
+      return res.status(422).json({ success: false, message: 'Invalid payout details or amount (minimum 5000)' });
+    }
+    return res.status(500).json({ success: false, message: 'Payout request failed' });
+  }
+});
+
+// GET /billing/payout
+router.get('/payout', async (req: Request, res: Response) => {
+  try {
+    const payouts = await prisma.payoutRequest.findMany({
+      where: { userId: req.user!.id },
+      orderBy: { createdAt: 'desc' },
+    });
+    return res.json({ success: true, data: payouts });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Failed to fetch payouts' });
+  }
+});
+
 
 // --- Razorpay Routes ---
 
