@@ -27,7 +27,7 @@ export default function BillingPage() {
       billingApi.transactions({ limit: '20' }),
       userApi.me(),
       billingApi.getConfig(),
-      fetch('/api/billing/payout', { headers: { Authorization: `Bearer ${localStorage.getItem('agenticai_token')}` } }).then(r => r.json())
+      billingApi.payouts()
     ]);
     if (balRes.success) setBalance(balRes.data);
     if (txRes.success) setTransactions((txRes.data as any)?.transactions || []);
@@ -121,15 +121,7 @@ export default function BillingPage() {
 
     setProcessing(true);
     try {
-      const res = await fetch('/api/billing/payout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('agenticai_token')}`
-        },
-        body: JSON.stringify({ amount, payoutMethod, payoutDetails })
-      });
-      const data = await res.json();
+      const data = await billingApi.requestPayout({ amount, payoutMethod, payoutDetails });
       
       if (!data.success) throw new Error(data.message);
 

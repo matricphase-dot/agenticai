@@ -45,6 +45,7 @@ export const authApi = {
   signup: auth.signup,
   logout: auth.logout,
   me: () => apiRequest('/auth/me'),
+  updateProfile: (data: any) => apiRequest('/users/me', { method: 'PUT', body: JSON.stringify(data) }),
 };
 
 export const api = {
@@ -94,6 +95,8 @@ export const billingApi = {
   capturePaypalOrder: (orderId: string) => apiRequest(`/billing/paypal/capture`, { method: 'POST', body: JSON.stringify({ orderId }) }),
   claimFaucet: () => apiRequest('/staking/faucet', { method: 'POST' }),
   getConfig: () => apiRequest('/billing/config'),
+  payouts: () => apiRequest('/billing/payout'),
+  requestPayout: (data: any) => apiRequest('/billing/payout', { method: 'POST', body: JSON.stringify(data) }),
 };
 
 export const governanceApi = {

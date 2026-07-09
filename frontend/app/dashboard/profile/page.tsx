@@ -26,13 +26,8 @@ export default function ProfilePage() {
   const onSave = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/user/profile", {
-        method: "PATCH",
-        body: JSON.stringify({ name, bio, avatar }),
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!res.ok) throw new Error(await res.text());
+      const res = await authApi.updateProfile({ name, bio, avatar });
+      if (!res.success) throw new Error(res.message || "Failed to update profile");
 
       // Optionally refresh user data
       const newSession = await authApi.me();
