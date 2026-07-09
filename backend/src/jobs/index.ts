@@ -6,25 +6,10 @@ const connection = { connection: redis };
 
 // ─── QUEUES ──────────────────────────────────────────────────
 
-export const rewardDistributionQueue = new Queue(
-  'reward-distribution', 
-  connection
-);
-
-export const unstakeProcessingQueue = new Queue(
-  'unstake-processing',
-  connection
-);
-
-export const proposalFinalizationQueue = new Queue(
-  'proposal-finalization',
-  connection
-);
-
-export const nodeHealthCheckQueue = new Queue(
-  'node-health-check',
-  connection
-);
+export let rewardDistributionQueue: any = null;
+export let unstakeProcessingQueue: any = null;
+export let proposalFinalizationQueue: any = null;
+export let nodeHealthCheckQueue: any = null;
 
 // ─── WORKERS ─────────────────────────────────────────────────
 
@@ -153,6 +138,11 @@ export async function initializeJobs() {
       logger.warn('Redis connection timed out during initialization. Job system will be disabled.');
       return;
     }
+
+    rewardDistributionQueue = new Queue('reward-distribution', connection);
+    unstakeProcessingQueue = new Queue('unstake-processing', connection);
+    proposalFinalizationQueue = new Queue('proposal-finalization', connection);
+    nodeHealthCheckQueue = new Queue('node-health-check', connection);
 
     await startWorkers();
     await scheduleJobs();

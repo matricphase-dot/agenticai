@@ -5,8 +5,12 @@ const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 
 export const redis = new Redis(REDIS_URL, {
   maxRetriesPerRequest: null,
+  lazyConnect: true,
   retryStrategy(times: number) {
-    const delay = Math.min(times * 200, 5000);
+    if (times > 3) {
+      return null;
+    }
+    const delay = Math.min(times * 200, 2000);
     return delay;
   },
   reconnectOnError(err: Error) {
