@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { marketplaceApi } from '@/lib/api';
 import { API_URL } from '@/lib/config';
+import { auth } from '@/lib/auth';
 
 const CATEGORIES = [
   'All', 'CHATBOT', 'DATA_ANALYST', 'CODE_ASSISTANT',
@@ -30,8 +31,10 @@ export default function MarketplacePage() {
   const [sort, setSort] = useState('newest');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<any>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
+    setIsLoggedIn(auth.isLoggedIn());
     setLoading(true);
     const params = new URLSearchParams();
     if (search) params.set('search', search);
@@ -71,11 +74,19 @@ export default function MarketplacePage() {
             className="text-zinc-400 hover:text-white text-sm transition">
             Dashboard
           </Link>
-          <Link href="/auth/login"
-            className="bg-purple-600 text-white text-sm font-medium 
-                       px-4 py-2 rounded-lg hover:bg-purple-500 transition">
-            Sign In
-          </Link>
+          {isLoggedIn ? (
+            <Link href="/dashboard"
+              className="bg-purple-600 text-white text-sm font-medium 
+                         px-4 py-2 rounded-lg hover:bg-purple-500 transition">
+              Go to Workspace
+            </Link>
+          ) : (
+            <Link href="/auth/login"
+              className="bg-purple-600 text-white text-sm font-medium 
+                         px-4 py-2 rounded-lg hover:bg-purple-500 transition">
+              Sign In
+            </Link>
+          )}
         </div>
       </div>
 

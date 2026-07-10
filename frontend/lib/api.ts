@@ -17,11 +17,15 @@ export async function apiRequest<T>(
   });
 
   if (res.status === 401) {
-    auth.clearSession();
-    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth/login')) {
-      window.location.href = '/auth/login';
+    const data = await res.json().catch(() => ({ success: false, code: 'UNAUTHORIZED' }));
+    // Only clear session and redirect if specifically a JWT/Session auth failure inside a protected /dashboard route
+    if (data && (data.code === 'NO_TOKEN' || data.code === 'INVALID_TOKEN' || data.code === 'UNAUTHORIZED')) {
+      if (typeof window !== 'undefined' && window.location.pathname.startsWith('/dashboard')) {
+        auth.clearSession();
+        window.location.href = '/auth/login';
+      }
     }
-    return { success: false, code: 'UNAUTHORIZED' };
+    return data;
   }
 
   const contentType = res.headers.get('content-type');
