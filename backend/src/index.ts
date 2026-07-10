@@ -157,8 +157,8 @@ app.get(["/health", "/api/health"], (req, res) => {
 app.use(errorHandler);
 
 // 6. Server Lifecycle
-const PORT = process.env.PORT || 4000;
-server.listen(PORT, async () => {
+const PORT = Number(process.env.PORT) || 4000;
+server.listen(PORT, '0.0.0.0', async () => {
   logger.info(`🚀 Agentic AI Backend running on port ${PORT}`);
   await SchedulerService.loadAllSchedules();
   EmailService.verifyConnection();
