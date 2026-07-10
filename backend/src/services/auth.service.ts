@@ -84,18 +84,36 @@ export const AuthService = {
         },
       });
 
-      // Create balance record if Balance model exists
+      // Create starting balance record
       try {
         await tx.balance.create({
           data: {
             userId: newUser.id,
-            credits: 0,
-            tokenBalance: 0,
+            credits: 50.0,
+            tokenBalance: 100000,
           },
         });
       } catch (e) {
-        // Balance model may not exist yet
         logger.warn('Could not create balance', { userId: newUser.id });
+      }
+
+      // Create default API Key for playground/agent testing
+      try {
+        const rawKey = 'sk-agnt-' + crypto.randomBytes(32).toString('hex');
+        const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
+        const keyPrefix = rawKey.substring(0, 14) + '...';
+        await tx.apiKey.create({
+          data: {
+            userId: newUser.id,
+            name: 'Default Playground Key',
+            keyHash,
+            keyPrefix,
+            rateLimit: 100,
+            isActive: true,
+          },
+        });
+      } catch (e) {
+        logger.warn('Could not create default API key', { userId: newUser.id });
       }
 
       return newUser;
