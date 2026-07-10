@@ -131,7 +131,7 @@ export const InvocationService = {
         provider: agent.modelProvider,
         model: agent.modelName,
         customKeys: secrets,
-        requireCustomKey: true,
+        requireCustomKey: false,
       });
 
       llmResult = {

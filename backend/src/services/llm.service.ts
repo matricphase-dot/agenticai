@@ -76,7 +76,10 @@ function isProviderAvailable(providerName: string): boolean {
 
 // --- GROQ PROVIDER ---
 function getGroqApiKey(customKeys?: Record<string, string>, requireCustom?: boolean): string | undefined {
-  if (customKeys?.GROQ_API_KEY) return customKeys.GROQ_API_KEY;
+  if (customKeys) {
+    const customKey = customKeys.GROQ_API_KEY || customKeys.groq_api_key || customKeys.api_key || customKeys.GROQ || customKeys.key;
+    if (customKey && typeof customKey === 'string' && customKey.trim().length > 10) return customKey.trim();
+  }
   if (requireCustom) return undefined;
 
   // Obfuscated to prevent GitHub Secret Scanners from auto-revoking the key
@@ -378,10 +381,13 @@ export async function callLLM(
       // Only pass the modelName if we are actually using the preferred provider.
       let modelToUse = provider.name === preferredProvider ? modelName : undefined;
 
-      // Auto-correct invalid model selections to prevent 404s and circuit breaker trips
-      if (provider.name === 'groq' && modelToUse && !modelToUse.includes('llama') && !modelToUse.includes('mixtral') && !modelToUse.includes('gemma')) {
-        logger.warn(`Auto-correcting invalid Groq model ${modelToUse} to llama-3.1-8b-instant`);
-        modelToUse = 'llama-3.1-8b-instant';
+      // Auto-correct invalid or decommissioned model selections to prevent 404s and circuit breaker trips
+      if (provider.name === 'groq') {
+        if (!modelToUse || modelToUse === 'llama3-8b-8192' || (!modelToUse.includes('llama') && !modelToUse.includes('mixtral') && !modelToUse.includes('gemma'))) {
+          modelToUse = 'llama-3.1-8b-instant';
+        } else if (modelToUse === 'llama3-70b-8192') {
+          modelToUse = 'llama-3.3-70b-versatile';
+        }
       }
 
       const result = await provider.call(systemPrompt, userInput, modelToUse, customKeys);

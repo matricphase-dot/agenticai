@@ -80,7 +80,7 @@ export const AuthService = {
           passwordHash,
           name: data.name,
           emailVerifyToken: verifyHash,
-          emailVerified: true, // Auto-verified on signup to bypass inbox check
+          emailVerified: false,
         },
       });
 
@@ -89,8 +89,8 @@ export const AuthService = {
         await tx.balance.create({
           data: {
             userId: newUser.id,
-            credits: 50.0,
-            tokenBalance: 100000,
+            credits: 0,
+            tokenBalance: 0,
           },
         });
       } catch (e) {
@@ -152,11 +152,7 @@ export const AuthService = {
     }
 
     if (!user.emailVerified) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { emailVerified: true },
-      }).catch(() => {});
-      user.emailVerified = true;
+      throw new Error('EMAIL_NOT_VERIFIED');
     }
 
     if (user.twoFactorEnabled) {
