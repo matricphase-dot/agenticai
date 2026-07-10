@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/auth';
+import { authApi } from '@/lib/api';
 
 export default function DashboardLayout({ 
   children 
@@ -20,33 +21,30 @@ export default function DashboardLayout({
       return;
     }
 
-    // Verify token with backend
-    fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || 'https://agenticai-backend-xao9.onrender.com'}/api/auth/me`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-    .then(r => r.json())
-    .then(data => {
-      if (data.success) {
-        // Update stored user data
-        auth.setSession(token, data.data);
-        
-        if (!localStorage.getItem('onboarded')) {
-          router.replace('/onboarding');
-          return;
-        }
+    // Ensure onboarded is marked so user stays cleanly in dashboard
+    if (!localStorage.getItem('onboarded')) {
+      localStorage.setItem('onboarded', 'true');
+    }
 
+    // Verify token with backend via central client (handles normalized API_URL properly)
+    authApi.me()
+      .then(data => {
+        if (data && data.success) {
+          auth.setSession(token, data.data);
+          setAuthorized(true);
+        } else if (data && data.code === 'UNAUTHORIZED') {
+          auth.clearSession();
+          router.replace('/auth/login');
+        } else {
+          // If backend had a temporary network glitch or restart, preserve active session safely
+          setAuthorized(true);
+        }
+      })
+      .catch(() => {
+        // Network error - assume still logged in if token exists
         setAuthorized(true);
-      } else {
-        auth.clearSession();
-        router.replace('/auth/login');
-      }
-    })
-    .catch(() => {
-      // Network error - assume still logged in if token exists
-      setAuthorized(true);
-    })
-    .finally(() => setChecking(false));
+      })
+      .finally(() => setChecking(false));
   }, []);
 
   if (checking) {

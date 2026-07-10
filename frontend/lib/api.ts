@@ -1,7 +1,5 @@
 import { auth } from './auth';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 
-  'https://agenticai-backend-xao9.onrender.com';
+import { API_URL } from './config';
 
 export async function apiRequest<T>(
   endpoint: string,
@@ -20,7 +18,7 @@ export async function apiRequest<T>(
 
   if (res.status === 401) {
     auth.clearSession();
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth/login')) {
       window.location.href = '/auth/login';
     }
     return { success: false, code: 'UNAUTHORIZED' };
