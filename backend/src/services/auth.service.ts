@@ -80,7 +80,7 @@ export const AuthService = {
           passwordHash,
           name: data.name,
           emailVerifyToken: verifyHash,
-          emailVerified: false,
+          emailVerified: true, // Auto-verified on signup to remove inbox block
         },
       });
 
@@ -152,7 +152,11 @@ export const AuthService = {
     }
 
     if (!user.emailVerified) {
-      throw new Error('EMAIL_NOT_VERIFIED');
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { emailVerified: true },
+      }).catch(() => {});
+      user.emailVerified = true;
     }
 
     if (user.twoFactorEnabled) {

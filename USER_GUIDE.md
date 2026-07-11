@@ -24,11 +24,11 @@ Welcome to **AgenticAI**, the decentralized, full-stack AI Agent Marketplace and
 2. Enter your **Full Name**, **Email Address**, and a **Secure Password**.
 3. Click **Create Account**.
 
-> [!IMPORTANT]
-> **Email Verification Required:** To maintain platform integrity and security against bots, your account starts at `$0.00` credits and requires verification before initial login. Check your inbox (or check your demo verification link if testing locally) and click **Verify Email Address**.
+> [!NOTE]
+> **Instant Dashboard Access:** To protect against credit abuse, all new accounts start at `$0.00` credits. Once created, your account is immediately active—you can log straight into the dashboard without waiting for an email verification link.
 
 ### Step 2: Access Your Dashboard
-Once verified, log in to access your personal workspace (`/dashboard`). Here you can monitor active pipelines, inspect system latency, check your credit balance, and view recent agent invocations.
+Once created, log in to access your personal workspace (`/dashboard`). Here you can monitor active pipelines, inspect system latency, check your credit balance, and view recent agent invocations.
 
 ---
 
