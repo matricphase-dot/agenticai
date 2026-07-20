@@ -20,6 +20,19 @@ import { globalRateLimit } from './middleware/rate-limit.middleware';
 dotenv.config();
 validateEnvironment();
 
+import { execSync } from 'child_process';
+if (process.env.NODE_ENV === 'production') {
+  try {
+    logger.info("Running automatic DB migrations and seed on startup...");
+    // Use --yes to avoid npx prompts, stdio 'pipe' to avoid Express stdout issues
+    execSync("npx --yes prisma migrate deploy", { stdio: 'pipe' });
+    execSync("npx --yes ts-node prisma/seed.ts", { stdio: 'pipe' });
+    logger.info("DB sync complete!");
+  } catch (e: any) {
+    logger.error("DB sync failed", { error: e?.message || e });
+  }
+}
+
 // 2. Initialize App
 const app = express();
 const server = http.createServer(app);
@@ -151,18 +164,6 @@ setupSwagger(app);
 // Health check
 app.get(["/health", "/api/health"], (req, res) => {
   res.json({ status: "ok", timestamp: new Date() });
-});
-
-// Temporary seed endpoint for Free Tier
-app.get("/api/seed-db-temp", (req, res) => {
-  const { execSync } = require("child_process");
-  try {
-    execSync("npx prisma migrate deploy");
-    execSync("npx ts-node prisma/seed.ts");
-    res.json({ status: "success", message: "Database migrated and seeded successfully!" });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message, details: error.stdout?.toString() });
-  }
 });
 
 // Error Handling
