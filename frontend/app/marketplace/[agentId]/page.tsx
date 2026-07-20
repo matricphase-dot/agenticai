@@ -80,6 +80,11 @@ export default function MarketplaceAgentPage() {
   -H "Content-Type: application/json" \\
   -d '{"message": "Hello!"}'`;
 
+  let parsedTags: string[] = [];
+  try {
+    parsedTags = typeof agent.tags === 'string' ? JSON.parse(agent.tags) : (agent.tags || []);
+  } catch (e) {}
+
   return (
     <div className="min-h-screen bg-[#0A0A0A]">
       {/* Nav */}
@@ -144,9 +149,9 @@ export default function MarketplaceAgentPage() {
                 </div>
               </div>
               <p className="text-zinc-300 leading-relaxed">{agent.description}</p>
-              {agent.tags?.length > 0 && (
+              {parsedTags.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-4">
-                  {agent.tags.map((tag: string) => (
+                  {parsedTags.map((tag: string) => (
                     <span key={tag} className="text-xs bg-zinc-800 text-zinc-400 px-2 py-1 rounded-lg">
                       #{tag}
                     </span>
