@@ -153,6 +153,18 @@ app.get(["/health", "/api/health"], (req, res) => {
   res.json({ status: "ok", timestamp: new Date() });
 });
 
+import { exec } from "child_process";
+// Temporary seed endpoint for Free Tier
+app.get("/api/seed-db-temp", (req, res) => {
+  exec("npx ts-node prisma/seed.ts", (error, stdout, stderr) => {
+    if (error) {
+      res.status(500).json({ error: error.message, stderr });
+      return;
+    }
+    res.json({ status: "success", stdout });
+  });
+});
+
 // Error Handling
 app.use(errorHandler);
 
