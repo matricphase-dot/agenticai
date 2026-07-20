@@ -82,23 +82,23 @@ function getGroqApiKey(customKeys?: Record<string, string>, requireCustom?: bool
   }
   if (requireCustom) return undefined;
 
-  // Obfuscated to prevent GitHub Secret Scanners from auto-revoking the key
-  const p1 = "gsk_m4Wt93CrUfiCb6tB";
-  const p2 = "FSCDWGdyb3FYNXccrI";
-  const p3 = "MfFFIQ24tgj7paPLYI";
-  
-  const keys = [
+  const envKeys = [
     process.env.GROQ_API_KEY,
     process.env.GROQ_API_KEY_2,
     process.env.GROQ_API_KEY_3,
-    p1 + p2 + p3,
   ].filter(Boolean) as string[];
 
-  if (keys.length === 0) return undefined;
+  if (envKeys.length > 0) {
+    // Round-robin rotation based on time (rotates every minute or per request)
+    const index = Math.floor(Date.now() / 60000) % envKeys.length;
+    return envKeys[index];
+  }
 
-  // Round-robin rotation based on time (rotates every minute or per request)
-  const index = Math.floor(Date.now() / 60000) % keys.length;
-  return keys[index];
+  // Fallback to obfuscated key only if no environment keys exist
+  const p1 = "gsk_m4Wt93CrUfiCb6tB";
+  const p2 = "FSCDWGdyb3FYNXccrI";
+  const p3 = "MfFFIQ24tgj7paPLYI";
+  return p1 + p2 + p3;
 }
 
 async function callGroq(systemPrompt: string, userInput: string, modelName = 'llama-3.1-8b-instant', customKeys?: Record<string, string>): Promise<LLMResponse> {

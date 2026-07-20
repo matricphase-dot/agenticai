@@ -84,13 +84,13 @@ export const AuthService = {
         },
       });
 
-      // Create starting balance record
+      // Create starting balance record (small amount for testing)
       try {
         await tx.balance.create({
           data: {
             userId: newUser.id,
-            credits: 0,
-            tokenBalance: 0,
+            credits: 1.00,
+            tokenBalance: 1000,
           },
         });
       } catch (e) {
