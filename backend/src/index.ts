@@ -166,6 +166,15 @@ app.get(["/health", "/api/health"], (req, res) => {
   res.json({ status: "ok", timestamp: new Date() });
 });
 
+app.get("/api/test-db", async (req, res) => {
+  try {
+    const keys = await prisma.apiKey.findMany({ take: 1 });
+    res.json({ success: true, message: "ApiKey table exists!", keys });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: "DB query failed", error: error.message, stack: error.stack });
+  }
+});
+
 // Error Handling
 app.use(errorHandler);
 
